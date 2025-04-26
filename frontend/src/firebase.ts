@@ -5,17 +5,22 @@ import { getDatabase, connectDatabaseEmulator } from "firebase/database";
 import { getStorage, connectStorageEmulator } from "firebase/storage";
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 
-// Your web app's Firebase configuration
-// IMPORTANT: Consider using environment variables for sensitive keys in a real app
+// Load Firebase config from environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyDm7wHD14W9OOZXsCnBobg7r4_ZztcH7ZQ",
-  authDomain: "animals-on-things.firebaseapp.com",
-  projectId: "animals-on-things",
-  storageBucket: "animals-on-things.appspot.com", // Corrected default storage bucket format
-  messagingSenderId: "181835489390",
-  appId: "1:181835489390:web:1adcfe2ad5f420ac8c467f",
-  databaseURL: "https://animals-on-things-default-rtdb.firebaseio.com" // Add Realtime Database URL
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET, 
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL
 };
+
+// Basic validation to ensure variables are loaded
+if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+  console.error("Firebase configuration environment variables are missing! Make sure VITE_FIREBASE_... variables are set in your .env file.");
+  // Optionally throw an error or display a message to the user
+}
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);

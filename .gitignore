@@ -1,11 +1,18 @@
 node_modules/
 
+# Environment variables
 .env
-.log
+frontend/.env # Specifically ignore frontend .env
 
-.firebase/
-.firebaserc
+# Log files
+*.log
+database-debug.log # Firebase emulator log
 
+# Firebase specific files (usually not committed)
+#.firebase/ # Keep this one if you want local settings shared
+#.firebaserc # Keep this one if you want project alias shared
+
+# Build outputs
 dist/
 lib/
 

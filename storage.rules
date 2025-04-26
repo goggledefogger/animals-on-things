@@ -3,8 +3,8 @@ rules_version = '2';
 // Default deny all access
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow authenticated users to read/write/delete their own files
-    match /user/{userId}/{allPaths=**} {
+    // Allow authenticated users to read/write/delete their own files under the /profiles path
+    match /profiles/{userId}/{allPaths=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     // Add other rules if needed (e.g., public read for generated images?)
