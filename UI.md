@@ -1,6 +1,8 @@
-# User Interface Description Document: Pets-On-Things (Phase 1)
+# User Interface Description Document: Animals-On-Things
 
-This document outlines the user interface design for the initial phase of the Pets-On-Things application, focusing on a playful and simple approach using persistent anonymous user identification via browser storage.
+This document outlines the user interface design for the Animals-On-Things application, focusing initially on Phase 1 (playful/simple, persistent anonymous ID) and outlining future additions.
+
+## Phase 1 UI Elements
 
 -   **Layout Structure**
     -   Primarily a single-column layout on desktop, ensuring a straightforward vertical flow.
@@ -50,3 +52,15 @@ This document outlines the user interface design for the initial phase of the Pe
     -   Adhere to basic accessibility principles (sufficient color contrast, semantic HTML, keyboard navigability, descriptive labels for inputs/buttons).
     -   Alt text considerations for uploaded and generated images.
     -   Ensure **Animal Profile** and Photo management actions are accessible. 
+
+## Future Phase UI Elements (Examples)
+
+-   **(Phase 2) Authentication:** Login/Signup forms/modals.
+-   **(Phase 2) Merchandise:** Product browsing (categories, individual items), preview of generated image on products, product configuration (size, color), shopping cart icon/view.
+-   **(Phase 3) Daily Image Feature:**
+    -   **Settings Toggle:** A simple toggle switch (e.g., in a user settings area) to enable/disable the daily automated image generation.
+    -   **Configuration (Optional):** Potentially options to select which animals are preferred for daily images.
+    -   **Display Area:** A dedicated section on the dashboard or main page to prominently display the latest daily generated image, perhaps with the date/theme.
+    -   **History View:** A gallery or list view to browse past daily generated images.
+-   **(Phase 3) Charity Support:** UI elements indicating donation amounts/partners during checkout or on relevant pages.
+-   **(Phase 3) Community:** User profiles, public galleries, like/comment buttons/feeds. 

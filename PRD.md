@@ -1,8 +1,8 @@
-# Product Requirements Document: Pets-On-Things (Phase 1: Image Generation with Persistent Anonymous Animals)
+# Product Requirements Document: Animals-On-Things (Phase 1: Image Generation with Persistent Anonymous Animals)
 
 ## 1. Elevator Pitch
 
-Pets-On-Things allows **animal lovers** to create profiles for **any animal** (pets, wildlife, insects, etc.), upload multiple photos for each, and use AI to generate unique, stylized images based on a selected photo (e.g., animals as comic book heroes, in cozy scenes, or custom scenarios). Data is associated with the user's browser via a persistent anonymous ID. It's a fun way to celebrate **all creatures** while aiming to eventually **support animal welfare and conservation organizations** through future merchandise sales.
+Animals-On-Things allows **animal lovers** to create profiles for **any animal** (pets, wildlife, insects, etc.), upload multiple photos for each, and use AI to generate unique, stylized images based on a selected photo (e.g., animals as comic book heroes, in cozy scenes, or custom scenarios). Data is associated with the user's browser via a persistent anonymous ID. It's a fun way to celebrate **all creatures**, with future plans for **automated daily themed images** and eventually **supporting animal welfare and conservation organizations** through merchandise sales.
 
 ## 2. Who is this app for?
 
@@ -41,6 +41,8 @@ Pets-On-Things allows **animal lovers** to create profiles for **any animal** (p
 *   **Usage Limits:** Implement a limit (e.g., 3 generations per day) tracked against the persistent anonymous user ID to manage API costs.
 *   **Brand Reflection:** The overall tone, copy, and presentation should consistently reflect the dual goals of fun **animal creativity** and supporting **animal welfare/conservation**.
 
+*(Phase 2 & 3 Requirements TBD - Initial ideas include full user accounts, merchandise integration, daily automated images, etc.)*
+
 ## 4. User Stories (Phase 1)
 
 *   As a user, I want to create a profile for the **neighborhood squirrel "Sparky"** so I can keep photos of him organized.
@@ -55,6 +57,15 @@ Pets-On-Things allows **animal lovers** to create profiles for **any animal** (p
 *   As a user, I want to see the AI images I've just created in this session.
 *   As a user, I want to be able to delete an **Animal profile** I no longer need.
 *   As a user, I want to be able to delete a specific photo from an **Animal's profile**.
+
+## User Stories (Future Phases)
+
+*   (Phase 2) As a user, I want to create a permanent account so I can access my animal profiles from any device.
+*   (Phase 2) As a user, I want to order a T-shirt featuring the generated image of Sparky.
+*   **(Phase 3) As a user, I want to opt-in to receive a new, fun image of one of my animals each day, themed to that specific day (like a holiday or event).**
+*   **(Phase 3) As a user, I want the daily image theme to be automatically determined by AI based on the current date.**
+*   **(Phase 3) As a user, I want to view my past daily images.**
+*   (Phase 3) As a user, I want a portion of my merchandise purchase to go towards a selected animal charity.
 
 ## 5. User Interface (Phase 1 - Initial Concept)
 
