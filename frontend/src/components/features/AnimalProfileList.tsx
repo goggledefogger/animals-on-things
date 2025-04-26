@@ -5,17 +5,20 @@ import { Card } from '../common/Card';
 import { AnimalProfile } from '../../types/AnimalProfile';
 
 interface AnimalProfileListProps {
-  selectedProfile: AnimalProfile | null;
-  onSelectProfile: (profile: AnimalProfile | null) => void;
+  selectedProfiles: AnimalProfile[];
+  onSelectProfile: (profile: AnimalProfile) => void;
 }
 
-export const AnimalProfileList: React.FC<AnimalProfileListProps> = ({ selectedProfile, onSelectProfile }) => {
+export const AnimalProfileList: React.FC<AnimalProfileListProps> = ({ selectedProfiles, onSelectProfile }) => {
   const { profiles, loading, error, deleteProfile } = useAnimalProfiles();
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = async (profileId: string, profileName: string) => {
-    if (selectedProfile && profileId === selectedProfile.id) {
-      onSelectProfile(null);
+    if (selectedProfiles.some(p => p.id === profileId)) {
+      const profileToDeselect = selectedProfiles.find(p => p.id === profileId);
+      if (profileToDeselect) {
+        onSelectProfile(profileToDeselect);
+      }
     }
     if (window.confirm(`Are you sure you want to delete the profile "${profileName}"? Associated photos will eventually be removed too (TODO).`)) {
       setDeletingId(profileId);
@@ -28,10 +31,6 @@ export const AnimalProfileList: React.FC<AnimalProfileListProps> = ({ selectedPr
         setDeletingId(null);
       }
     }
-  };
-
-  const handleSelectProfile = (profile: AnimalProfile) => {
-    onSelectProfile(selectedProfile && selectedProfile.id === profile.id ? null : profile);
   };
 
   const renderContent = () => {
@@ -50,7 +49,7 @@ export const AnimalProfileList: React.FC<AnimalProfileListProps> = ({ selectedPr
         ) : (
           <ul className="space-y-2 mb-4">
             {profiles.map((profile) => {
-              const isSelected = selectedProfile?.id === profile.id;
+              const isSelected = selectedProfiles.some(p => p.id === profile.id);
               const isDeleting = profile.id === deletingId;
               return (
                 <li 
@@ -58,7 +57,7 @@ export const AnimalProfileList: React.FC<AnimalProfileListProps> = ({ selectedPr
                   className={`relative flex flex-row justify-between items-center p-2 sm:p-3 border rounded-md shadow-sm transition-all duration-150 cursor-pointer 
                     ${isDeleting ? 'opacity-50' : 'hover:shadow-md'} 
                     ${isSelected ? 'bg-indigo-100 dark:bg-indigo-900/50 border-indigo-300 dark:border-indigo-600' : 'bg-gray-50 dark:bg-gray-700 dark:border-gray-600'}`}
-                  onClick={() => !isDeleting && handleSelectProfile(profile)}
+                  onClick={() => !isDeleting && onSelectProfile(profile)}
                 >
                   <span 
                     className={`font-medium text-gray-800 dark:text-gray-100 truncate flex-1 ${isSelected ? 'text-indigo-800 dark:text-indigo-200' : ''}`}

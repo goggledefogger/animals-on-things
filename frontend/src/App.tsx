@@ -1,42 +1,77 @@
-import React, { useState } from 'react'; // Import useState
-import { useAuth } from './contexts/AuthContext'; // Corrected import path
-import { AnimalProfileList } from './components/features/AnimalProfileList'; // Import the new component
-import { PhotoGallery } from './components/features/PhotoGallery'; // Import PhotoGallery
-import { ImageGenerationPanel } from './components/features/ImageGenerationPanel'; // Import the new panel
-import { Card } from './components/common/Card'; // Import Card
-import { AnimalProfile } from './types/AnimalProfile'; // Import AnimalProfile type
+import React, { useState, useCallback } from 'react';
+import { useAuth } from './contexts/AuthContext';
+import { AnimalProfileList } from './components/features/AnimalProfileList';
+// Import the new component for selecting photos for multiple profiles
+import { SelectedPhotosPanel } from './components/features/SelectedPhotosPanel'; 
+import { ImageGenerationPanel } from './components/features/ImageGenerationPanel';
+import { Card } from './components/common/Card';
+import { AnimalProfile } from './types/AnimalProfile';
+
+// Define a type for the mapping of selected photos
+export interface SelectedPhotoMap {
+  [profileId: string]: string | null; // Map profile ID to selected photo ID
+}
 
 function App() {
-  // Get auth state from context
-  // Destructure currentUser and loading from the context value
   const { currentUser, loading } = useAuth();
-  // State to manage the selected profile - lifted up from AnimalProfileList
-  const [selectedProfile, setSelectedProfile] = useState<AnimalProfile | null>(null);
-  // Lift selectedPhotoId state up from PhotoGallery
-  const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
+  // State for multiple selected profiles
+  const [selectedProfiles, setSelectedProfiles] = useState<AnimalProfile[]>([]);
+  // State for mapping selected profile IDs to their chosen photo ID
+  const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhotoMap>({});
 
-  // When profile changes, deselect the photo
-  const handleProfileSelect = (profile: AnimalProfile | null) => {
-    setSelectedProfile(profile);
-    setSelectedPhotoId(null); // Reset photo selection when profile changes
-  };
+  // Handler for selecting/deselecting profiles (multi-select)
+  const handleProfileSelectToggle = useCallback((profile: AnimalProfile) => {
+    setSelectedProfiles(prevSelected => {
+      const isSelected = prevSelected.some(p => p.id === profile.id);
+      let newSelectedProfiles;
+      if (isSelected) {
+        newSelectedProfiles = prevSelected.filter(p => p.id !== profile.id);
+      } else {
+        newSelectedProfiles = [...prevSelected, profile];
+      }
+      
+      // Also update the selected photos map when profiles change
+      setSelectedPhotos(prevPhotos => {
+        const newPhotos: SelectedPhotoMap = {};
+        newSelectedProfiles.forEach(p => {
+          // Keep existing selection if profile is still selected, otherwise null
+          newPhotos[p.id] = prevPhotos[p.id] || null;
+        });
+        return newPhotos;
+      });
 
-  // Removed the useEffect hook that handled auth state changes
-  // as this logic is now encapsulated in AuthProvider
+      return newSelectedProfiles;
+    });
+  }, []);
+
+  // Handler for selecting a photo for a specific profile
+  const handlePhotoSelect = useCallback((profileId: string, photoId: string | null) => {
+    // Only update if the profile is actually selected
+    if (selectedProfiles.some(p => p.id === profileId)) {
+      setSelectedPhotos(prev => ({
+        ...prev,
+        [profileId]: photoId,
+      }));
+      console.log(`Photo selection updated for profile ${profileId}:`, photoId);
+    }
+  }, [selectedProfiles]);
+
+  // Determine which profile/photo pairs are ready for generation
+  const generationSelections = selectedProfiles
+    .map(profile => ({
+      profileId: profile.id,
+      photoId: selectedPhotos[profile.id] || null,
+    }))
+    .filter(selection => selection.photoId !== null) as { profileId: string; photoId: string }[];
 
   return (
-    // Full-bleed background with padding
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50 dark:from-gray-800 dark:via-gray-900 dark:to-slate-900 text-gray-900 dark:text-gray-100 px-4 sm:px-6 py-6">
-      
-      {/* Container for content - centered with responsive max-width */}
-      <div className="w-full max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-4xl mx-auto">
-        {/* App Title */}
-        <h1 className="text-center text-3xl sm:text-4xl md:text-5xl font-bold text-indigo-700 dark:text-indigo-300 mb-6 sm:mb-8">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50 dark:from-gray-800 dark:via-gray-900 dark:to-slate-900 text-gray-900 dark:text-gray-100 px-4 sm:px-6 py-8 sm:py-10">
+      <div className="w-full max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-7xl mx-auto">
+        <h1 className="text-center text-3xl sm:text-4xl md:text-5xl font-bold text-indigo-700 dark:text-indigo-300 mb-8 sm:mb-10">
           Animals On Things
         </h1>
 
-        {/* Auth Status */}
-        <Card className="w-full mb-4 sm:mb-6">
+        <Card className="w-full mb-6 sm:mb-8">
           <h2 className="text-lg sm:text-xl font-semibold mb-2">Auth Status</h2>
           {loading && <p>Loading Auth State...</p>}
           {!loading && currentUser && (
@@ -49,32 +84,36 @@ function App() {
           {!loading && !currentUser && <p className="text-red-600 dark:text-red-400">Not signed in.</p>}
         </Card>
 
-        {/* Animal Profiles Section */}
         {!loading && currentUser && (
-          <AnimalProfileList 
-            selectedProfile={selectedProfile} 
-            onSelectProfile={handleProfileSelect} 
-          /> 
-        )}
-
-        {/* Photo Gallery and Image Generation in flex layout on larger screens */}
-        {!loading && currentUser && selectedProfile && (
-          <div className="flex flex-col md:flex-row md:gap-4">
-            <div className="w-full md:w-3/5">
-              <PhotoGallery 
-                key={selectedProfile.id}
-                profileId={selectedProfile.id} 
-                profileName={selectedProfile.name} 
-                selectedPhotoId={selectedPhotoId}
-                onSelectPhoto={setSelectedPhotoId}
-              />
+          <div className="flex flex-col xl:flex-row gap-6 xl:gap-8">
+            {/* Left Column: Profile Selection */}
+            <div className="w-full xl:w-1/3 flex-shrink-0">
+              <AnimalProfileList 
+                selectedProfiles={selectedProfiles} 
+                onSelectProfile={handleProfileSelectToggle} 
+              /> 
             </div>
-            
-            <div className="w-full md:w-2/5 mt-4 md:mt-0">
-              <ImageGenerationPanel 
-                profileId={selectedProfile.id}
-                selectedPhotoId={selectedPhotoId}
-              />
+
+            {/* Right Column: Photo Selection & Generation */}
+            <div className="w-full xl:w-2/3 flex flex-col gap-6">
+              {selectedProfiles.length > 0 && (
+                <Card className="w-full">
+                  <h3 className="text-lg sm:text-xl font-semibold mb-3 text-gray-700 dark:text-gray-200">Select Photos for Generation</h3>
+                  {/* Replace placeholder with the actual component */}
+                  <SelectedPhotosPanel
+                    selectedProfiles={selectedProfiles}
+                    selectedPhotos={selectedPhotos}
+                    onSelectPhoto={handlePhotoSelect}
+                  />
+                </Card>
+              )}
+
+              {/* Conditionally render generation panel only if there are selected profiles */}
+              {selectedProfiles.length > 0 && (
+                <ImageGenerationPanel 
+                  selections={generationSelections} // Pass the list of {profileId, photoId} pairs
+                />
+              )}
             </div>
           </div>
         )}

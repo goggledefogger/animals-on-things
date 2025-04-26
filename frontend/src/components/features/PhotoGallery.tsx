@@ -70,11 +70,11 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
       return <p className="text-center text-red-500">Error loading photos: {error.message}</p>;
     }
     if (photos.length === 0 && !loading) {
-      return <p className="text-center text-gray-500 dark:text-gray-400 mt-4">No photos uploaded for this profile yet.</p>;
+      return <p className="text-center text-gray-500 dark:text-gray-400 mt-3">No photos uploaded for this profile yet.</p>;
     }
 
     return (
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 md:gap-4 mt-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-3 mt-3">
         {photos.map((photo) => (
           <AnimalPhotoItem
             key={photo.id}
@@ -89,12 +89,12 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
   };
 
   return (
-    <Card className="w-full max-w-3xl mt-6">
-      <h3 className="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-200">
+    <Card className="w-full mb-4">
+      <h3 className="text-lg sm:text-xl font-semibold mb-3 text-gray-700 dark:text-gray-200">
         Photos for: <span className="text-indigo-600 dark:text-indigo-400">{profileName}</span>
       </h3>
       {deleteError && (
-        <p className="mb-4 text-center text-red-600 bg-red-100 dark:bg-red-900 dark:text-red-300 p-2 rounded">Error deleting photo: {deleteError}</p>
+        <p className="mb-3 text-center text-red-600 bg-red-100 dark:bg-red-900 dark:text-red-300 p-2 rounded text-sm">Error deleting photo: {deleteError}</p>
       )}
       <PhotoUploader profileId={profileId} />
       {renderGalleryContent()}

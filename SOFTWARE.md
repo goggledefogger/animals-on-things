@@ -14,70 +14,76 @@ This document details the technical requirements for Phase 1, using **Firebase**
 ### Frontend Architecture Details
 
 -   **Folder Structure (`frontend/src/`):**
-    -   `App.tsx`: Main application component, sets up layout and routing (if needed later).
+    -   `App.tsx`: Main application component, sets up layout, manages multi-select state for profiles/photos.
     -   `main.tsx`: Application entry point, initializes React, wraps App with providers.
     -   `firebase.ts`: Firebase configuration and SDK initialization.
-    -   `components/`: Reusable UI components (e.g., Button, Card, Input, Modal).
-        -   `common/`: General-purpose, stateless components.
-        -   `features/`: Components specific to a feature area (e.g., `AnimalProfile/`, `ImageGeneration/`).
-            -   `AnimalProfileList.tsx`
-            -   `AddAnimalProfileForm.tsx`
-            -   `PhotoUploader.tsx`
-            -   `PhotoGallery.tsx`
-            -   `StyleSelector.tsx`
-            -   `GenerationResult.tsx`
+    -   `components/`: Reusable UI components.
+        -   `common/`: General-purpose, stateless components (Button, Card, Input, PhotoThumbnail).
+        -   `features/`: Components specific to a feature area.
+            -   `AnimalProfileList.tsx`: Handles display and multi-selection of animal profiles.
+            -   `AddAnimalProfileForm.tsx`: Form to add new animal profiles.
+            -   `PhotoUploader.tsx`: Handles uploading photos for a specific profile.
+            -   `SelectedPhotosPanel.tsx`: Displays selected profiles and allows choosing one photo per profile.
+            -   `ImageGenerationPanel.tsx`: Controls for style, prompt, and triggering generation based on selected pairs.
+            -   `PhotoGallery.tsx`: *(Deprecated/Replaced by SelectedPhotosPanel for generation selection)* May still be useful for general photo viewing/management within a profile.
+            -   `AnimalPhotoItem.tsx`: *(Deprecated/Replaced by PhotoThumbnail)*
+            -   `StyleSelector.tsx`: *(Part of ImageGenerationPanel)*
+            -   `GenerationResult.tsx`: *(Part of ImageGenerationPanel)*
     -   `contexts/`: React Context providers and hooks (e.g., `AuthContext.tsx`).
     -   `hooks/`: Custom React hooks for encapsulating logic.
         -   `useAuth.ts`: (Already part of AuthContext) Hook to access auth state.
-        -   `useAnimalProfiles.ts`: Hook for fetching and managing animal profiles (CRUD operations via Firebase Realtime Database).
-        -   `useAnimalPhotos.ts`: Hook for fetching and managing photos for a specific profile (CRUD operations via Firebase Storage & Realtime Database).
-        -   `useImageGeneration.ts`: Hook for calling the `generateImage` Cloud Function and managing generation state.
-    -   `services/`: Modules for interacting with external services (e.g., Firebase functions wrappers, though often hooks are sufficient).
+        -   `useAnimalProfiles.ts`: Hook for fetching and managing animal profiles.
+        -   `useAnimalPhotos.ts`: Hook for fetching photos for a specific profile.
+        -   `useImageGeneration.ts`: *(Needs update)* Hook for calling the `generateImage` Cloud Function and managing generation state (will need to handle array input).
+    -   `services/`: Modules for interacting with external services.
     -   `types/`: TypeScript type definitions (e.g., `AnimalProfile.ts`, `AnimalPhoto.ts`).
-    -   `utils/`: Utility functions (e.g., date formatters, validation helpers).
+    -   `utils/`: Utility functions.
     -   `assets/`: Static assets like images, fonts.
-    -   `styles/`: Global styles or Tailwind configuration extensions (though often `index.css` is sufficient).
+    -   `styles/`: Global styles or Tailwind configuration extensions.
 
 -   **State Management:**
-    -   **Global State:** React Context API (`contexts/`) for authentication state (`AuthContext`). Will consider adding context for managing currently selected animal profile if needed across multiple components.
-    -   **Remote State / Data Fetching:** Custom hooks (`hooks/`) will manage interaction with Firebase (Realtime Database, Storage, Functions). These hooks will handle fetching data, loading states, and errors. For Realtime Database, hooks will utilize `onValue` listeners for real-time updates where appropriate.
-    -   **Local Component State:** Standard `useState` and potentially `useReducer` for UI state within individual components (e.g., form inputs, modal visibility).
+    -   **Global State:** React Context API (`contexts/`) for authentication state (`AuthContext`).
+    -   **App-Level State (`App.tsx`):** Manages the list of multi-selected `AnimalProfile` objects and the mapping of `profileId` to selected `photoId` (`SelectedPhotoMap`).
+    -   **Remote State / Data Fetching:** Custom hooks (`hooks/`) manage interaction with Firebase.
+    -   **Local Component State:** `useState` for UI state within components.
 
 -   **Component Design:**
     -   Prioritize functional components with hooks.
-    -   Aim for clear separation of concerns:
-        -   **Feature Components (`components/features/`):** Combine UI presentation with data fetching/mutation logic via custom hooks.
-        -   **Common Components (`components/common/`):** Purely presentational, reusable UI elements receiving data and callbacks via props.
-    -   Keep components relatively small and focused on a single responsibility.
+    -   **Common Components (`components/common/`):** Reusable UI elements (Button, Card, Input, PhotoThumbnail).
+    -   **Feature Components (`components/features/`):** Combine UI presentation with data fetching/mutation logic via custom hooks or props passed from `App.tsx`.
 
 -   **Firebase Interactions:**
-    -   All direct interactions with Firebase services (Auth, Realtime Database, Storage, Functions) will be encapsulated within custom hooks (`hooks/`) or dedicated service modules (`services/` if complexity warrants).
-    -   Components will consume these hooks to get data and trigger actions (e.g., `const { profiles, addProfile, isLoading } = useAnimalProfiles();`).
-    -   Hooks will leverage the `currentUser.uid` from `useAuth()` to interact with the correct data paths in Firebase.
-    -   Realtime Database interactions will use the `firebase/database` SDK.
-    -   Storage interactions will use the `firebase/storage` SDK.
-    -   Cloud Function calls will use the `firebase/functions` SDK (HTTPS callable functions).
+    -   Encapsulated within custom hooks (`hooks/`).
+    -   Components consume hooks or receive data/handlers via props.
+    -   Hooks use `currentUser.uid` from `useAuth()`.
+    -   Realtime Database: `firebase/database` SDK.
+    -   Storage: `firebase/storage` SDK (including `getDownloadURL` for `PhotoThumbnail`).
+    -   Functions: `firebase/functions` SDK (HTTPS callable functions).
 
 -   **State management**
-    -   **Frontend (Phase 1):** Firebase SDK for managing auth state (anonymous user) and **Realtime Database** interactions. React's built-in state management (`useState`, `useContext`) for UI state. Realtime Database listeners provide reactive data updates.
-    -   **Backend:** Cloud Functions are typically stateless, relying on **Realtime Database**/Storage for state persistence.
+    -   **Frontend (Phase 1):** Firebase SDK for auth state. React state (`useState`, `useCallback`) in `App.tsx` for managing selections. Realtime Database listeners in hooks for data updates.
+    -   **Backend:** Cloud Functions remain stateless.
 
--   **Data flow (Example: Image Generation)**
-    1.  User accesses the web application (hosted on Firebase Hosting).
-    2.  Frontend uses Firebase Auth SDK to sign in the user anonymously if not already signed in. Gets the anonymous `uid`.
-    3.  User creates/selects an Animal Profile (data fetched from/written to **Realtime Database** under `/profiles/$uid`).
-    4.  User uploads a photo for the selected Animal Profile using Firebase Storage SDK (rules enforce ownership based on `uid`).
-    5.  User selects an uploaded photo (identified by its path/ID in **Realtime Database**/Storage) and chooses a style/prompt.
-    6.  Frontend makes an HTTPS request to a specific Firebase Cloud Function (`generateImage`), sending the selected photo identifier, style/prompt, and the user's `uid` (verified via auth token).
-    7.  Cloud Function (`generateImage`) verifies the user token.
-    8.  Cloud Function retrieves the image data from Firebase Storage using the provided identifier.
-    9.  Cloud Function constructs the appropriate request for the external OpenAI API (`gpt-image-1`), including the image data and prompt.
-    10. Cloud Function calls the OpenAI API and awaits the response.
-    11. OpenAI API processes the request and returns the generated image.
-    12. Cloud Function receives the generated image.
-    13. Cloud Function potentially saves the result (e.g., back to Firebase Storage or **Realtime Database**, associated with the user `uid`) and returns the generated image URL/data to the frontend.
-    14. Frontend receives the response and displays the generated image.
-    15. User can click a button to download the image directly.
+-   **Data flow (Example: Image Generation - Multi-Select)**
+    1.  User accesses the web application.
+    2.  Frontend signs in user anonymously (`uid`).
+    3.  User multi-selects desired Animal Profiles in `AnimalProfileList` (state updates in `App.tsx`).
+    4.  `SelectedPhotosPanel` displays selected profiles.
+    5.  For each selected profile, `SelectedPhotosPanel` (using `MiniPhotoGallery` and `PhotoThumbnail`) fetches and displays photo thumbnails from Storage (via `useAnimalPhotos` hook + `getDownloadURL`).
+    6.  User selects *one* photo thumbnail for each profile in `SelectedPhotosPanel`. The `profileId: photoId` mapping updates in `App.tsx` state.
+    7.  User selects style/enters prompt in `ImageGenerationPanel`.
+    8.  User clicks "Generate".
+    9.  Frontend (`App.tsx`) prepares the `selections` array (containing `{profileId, photoId}` pairs for profiles with a selected photo).
+    10. Frontend makes an HTTPS request to `generateImage` Cloud Function, sending the `selections` array, style/prompt, and user's ID token.
+    11. Cloud Function (`generateImage`) verifies token.
+    12. Cloud Function iterates through the `selections` array, retrieving corresponding image data/metadata from Firebase Storage/Database.
+    13. Cloud Function formulates a strategy and prompt for OpenAI API (`gpt-image-1`) to combine inputs.
+    14. Cloud Function calls OpenAI API.
+    15. OpenAI API returns the single, combined generated image.
+    16. Cloud Function receives the result.
+    17. Cloud Function potentially saves result metadata and returns the generated image URL to the frontend.
+    18. Frontend (`ImageGenerationPanel`) receives the response and displays the generated image.
+    19. User can download the image.
 
 -   **Data flow (Example: Daily Image Generation - Phase 3)**
     1.  Cloud Scheduler triggers the `dailyImageGenerator` Cloud Function daily for each opted-in user.
@@ -115,8 +121,8 @@ This document details the technical requirements for Phase 1, using **Firebase**
 
 -   **API Design (Cloud Functions)**
     -   **Function:** `generateImage` (HTTPS Trigger)
-        -   **Request (POST):** `{ "photoKey": "unique_key_from_rtdb", "style": "optional_style_name", "prompt": "optional_custom_prompt" }` (Authorization header with Firebase ID token)
-        -   **Response (Success - 200 OK):** `{ "imageUrl": "url_to_generated_image.jpg" }`
+        -   **Request (POST):** `{ "selections": [{ "profileId": "...". "photoId": "..." }, ...], "style": "optional_style_name", "prompt": "optional_custom_prompt" }` (Authorization header with Firebase ID token)
+        -   **Response (Success - 200 OK):** `{ "imageUrl": "url_to_single_generated_image.jpg" }`
         -   **Response (Error - 4xx/5xx):** `{ "error": "Error message" }`
     -   *Other functions needed:* Possibly functions for complex data operations not suitable for direct client access, or scheduled tasks later.
     -   **(Phase 3) Function:** `dailyImageGenerator` (Cloud Scheduler Trigger)
@@ -144,6 +150,7 @@ This document details the technical requirements for Phase 1, using **Firebase**
                 "$photoId": { // Auto-generated key for photo
                   "storagePath": "user/$uid/profiles/$profileId/sparky1.jpg",
                   "createdAt": 1678886450000
+                  // NOTE: downloadUrl is NOT stored here, fetched on demand by client
                 },
                 "$photoId2": { ... }
               }
@@ -154,24 +161,27 @@ This document details the technical requirements for Phase 1, using **Firebase**
         "generatedImages": {
           "$uid": {
             "$generatedImageId": {
-              "prompt": "Sparky riding a tiny motorcycle",
-              "style": "comic book",
-              "sourcePhotoId": "$photoId",
-              "profileId": "$profileId",
+              "prompt": "Sparky and Mittens playing chess",
+              "style": "cartoon",
+              // Store the input selections that generated this image
+              "sourceSelections": [
+                { "profileId": "$profileId", "photoId": "$photoId" },
+                { "profileId": "$profileId_mittens", "photoId": "$photoId_mittens" }
+              ],
               "resultUrl": "...",
               "createdAt": 1678887000000
             }
           }
         },
-        "userPreferences": { // Added for Phase 3+
+        "userPreferences": { 
           "$uid": {
             "dailyImageEnabled": true,
             "featuredAnimalProfileIds": ["$profileId1", "$profileId2"]
           }
         },
-        "dailyImages": { // Added for Phase 3+
+        "dailyImages": { 
           "$uid": {
-            "YYYY-MM-DD": { // Date as key
+            "YYYY-MM-DD": { 
                "theme": "National Squirrel Day",
                "imageUrl": "...",
                "createdAt": 1678888000000

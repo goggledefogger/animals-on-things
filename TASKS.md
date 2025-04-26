@@ -37,42 +37,50 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
   - [x] Frontend: UI Component to delete an Animal Profile (delete from Realtime Database).
 - [x] **Implement Animal Photo Management (Frontend & Storage/Realtime Database)** (Partially Complete)
   - [x] Frontend: UI Component to display photo gallery for a selected Animal Profile (read photo metadata from Realtime Database).
-    - [x] Handle profile selection.
+    - [x] Handle profile selection (refactored to multi-select in `App.tsx`).
     - [x] Create hook to fetch photo metadata (`useAnimalPhotos`).
-    - [x] Create `PhotoGallery` component (displays placeholder).
-    - [x] Render actual images from Storage (using `AnimalPhotoItem`).
+    - [x] Create `PhotoGallery` component (displays placeholder) - *Note: Role may change with new UX*
+    - [x] Render actual images from Storage (via `PhotoThumbnail`).
     - [x] Add photo delete button UI (`AnimalPhotoItem`).
     - [x] Implement photo delete logic (Storage & Realtime Database) (`PhotoGallery`).
-    - [x] Add photo selection mechanism (state in `PhotoGallery`, UI in `AnimalPhotoItem`).
+    - [x] Add photo selection mechanism (Refactored to `SelectedPhotosPanel`).
+- [x] **Refinement & Styling** (Partially Complete)
+  - [x] Ensure responsiveness across devices.
+- [x] **Refactor Image Generation Flow (Frontend)**
+  - [x] Update state management in `App.tsx` for multi-select profiles and photos.
+  - [x] Update `AnimalProfileList.tsx` for multi-select UI and logic.
+  - [x] Create `PhotoThumbnail.tsx` component to display images from storage path.
+  - [x] Create `SelectedPhotosPanel.tsx` component for selecting one photo per chosen profile.
+  - [x] Integrate `SelectedPhotosPanel` into `App.tsx`.
+  - [x] Update `ImageGenerationPanel.tsx` props and UI to accept multiple selections.
 
 ## In Progress Tasks
 
 - [ ] **Implement Animal Photo Management (Frontend & Storage/Realtime Database)** (Continued)
-  - [ ] Frontend: UI Component to upload photos to Firebase Storage (associated with selected Profile & `uid`). Store metadata (storagePath) in Realtime Database (`PhotoUploader`).
-- [ ] Frontend: UI Component to select a photo for generation (using the selection state).
-- [ ] Frontend: UI Component to delete a photo (consolidated delete logic - *Seems done above*).
+  - [ ] Frontend: UI Component to upload photos to Firebase Storage (associated with selected Profile & `uid`). Store metadata (storagePath) in Realtime Database (`PhotoUploader`). *(Needs verification/testing with new UX)*
+  - [ ] Frontend: UI Component to delete a photo (consolidated delete logic - *Seems done above, needs testing*).
 - [ ] **Implement Image Generation Cloud Function (`generateImage`)**
   - [ ] Setup Cloud Function project (e.g., `functions/src/index.ts` if using TS).
   - [ ] Add necessary dependencies (`firebase-admin`, `firebase-functions`, `openai`, etc.).
   - [ ] Implement HTTPS callable function:
     - Verify user auth token (`context.auth`).
-    - Get photo details (e.g., storage path from **Realtime Database** using photo key) from request body.
-    - Retrieve image from Firebase Storage.
-    - Call OpenAI `gpt-image-1` API (manage API key via env config).
+    - Adapt to receive `selections: [{ profileId, photoId }, ...]` in request body.
+    - Retrieve *multiple* images/details from Firebase Storage/Database based on `selections`.
+    - Formulate a combined prompt or strategy for OpenAI `gpt-image-1` API to use multiple inputs.
+    - Call OpenAI API (manage API key via env config).
     - Handle OpenAI response/errors.
     - Return generated image URL or data.
   - [ ] Implement basic rate limiting (e.g., using **Realtime Database** to track user generations).
-- [ ] **Implement Image Generation Frontend Integration**
-  - [ ] UI Component: Style selector (predefined options).
-  - [ ] UI Component: Custom prompt input field.
-  - [ ] UI Component: "Generate" button (calls the `generateImage` Cloud Function).
-  - [ ] UI Component: Display generated image result.
+- [ ] **Implement Image Generation Frontend Integration** (Mostly Done by Refactor)
+  - [x] UI Component: Style selector (predefined options).
+  - [x] UI Component: Custom prompt input field.
+  - [x] UI Component: "Generate" button (calls the `generateImage` Cloud Function).
+  - [x] UI Component: Display generated image result.
   - [ ] UI Component: Download button for generated image.
   - [ ] UI Component: Session gallery for recently generated images (client-side state).
-- [ ] **Refinement & Styling**
+- [ ] **Refinement & Styling** (Continued)
   - [ ] Apply playful & simple theme based on `UI.md` using Tailwind.
   - [ ] Add loading indicators and error handling feedback (for Firebase operations & Function calls).
-  - [ ] Ensure responsiveness across devices.
   - [ ] Ensure copy and visual tone align with the dual mission of fun creativity and animal welfare/conservation support.
 - [ ] **Testing**
   - [ ] Write basic tests for Cloud Functions (using emulators/mocks).
@@ -82,13 +90,13 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
   - [ ] Deploy Cloud Functions (`firebase deploy --only functions`).
   - [ ] Build and deploy frontend app to Firebase Hosting (`firebase deploy --only hosting`).
 
-## Implementation Plan
+## Implementation Plan (Revised)
 
 1.  **Firebase Setup:** Create project, initialize locally (**Database**, Functions, Storage, Hosting, Emulators), configure basic security rules.
 2.  **Authentication:** Implement frontend anonymous login using Firebase Auth SDK.
-3.  **Core Realtime Database/Storage CRUD:** Implement frontend UI and logic for creating/reading/deleting Animal Profiles and Photos, interacting directly with Realtime Database and Storage SDKs.
-4.  **Cloud Function:** Implement the `generateImage` Cloud Function to handle OpenAI interaction.
-5.  **Frontend Integration:** Connect frontend UI (style/prompt selection, generate button) to call the Cloud Function and display results.
+3.  **Core Realtime Database/Storage CRUD:** Implement frontend UI and logic for creating/reading/deleting Animal Profiles and Photos (direct SDKs).
+4.  **Refactor Generation Flow:** Modify frontend state (`App.tsx`), profile selection (`AnimalProfileList`), photo selection (`SelectedPhotosPanel`, `PhotoThumbnail`), and generation panel (`ImageGenerationPanel`) for multi-select UX.
+5.  **Cloud Function:** Implement the `generateImage` Cloud Function, adapting it to handle multiple inputs.
 6.  **Refinement & Styling:** Apply theme, add loading/error states, ensure responsiveness and brand alignment.
 7.  **Testing & Deployment:** Write tests, deploy rules, functions, and hosting.
 
@@ -101,7 +109,7 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
 - `README.md` - Project Overview
 - `TASKS.md` - Implementation Tasks (this file)
 - `frontend/` - React application code
-  - `frontend/src/App.tsx` - Main application component, orchestrates profile/photo view ✅
+  - `frontend/src/App.tsx` - Main application component, orchestrates multi-select profile/photo view ✅ (Refactored)
   - `frontend/src/main.tsx` - Application entry point, wraps App with AuthProvider ✅
   - `frontend/src/firebase.ts` - Firebase configuration and initialization ✅
   - `frontend/src/contexts/AuthContext.tsx` - React context for authentication state ✅
@@ -109,14 +117,17 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
   - `frontend/src/types/AnimalPhoto.ts` - TypeScript type for Animal Photo ✅
   - `frontend/src/hooks/useAnimalProfiles.ts` - Hook for fetching and managing animal profiles ✅
   - `frontend/src/hooks/useAnimalPhotos.ts` - Hook for fetching photos for a profile ✅
-  - `frontend/src/components/features/AnimalProfileList.tsx` - Component to display/select/delete animal profiles ✅
-  - `frontend/src/components/features/AddAnimalProfileForm.tsx` - Component to add new animal profiles ✅
-  - `frontend/src/components/features/PhotoGallery.tsx` - Component to display photos for selected profile ✅
-  - `frontend/src/components/features/AnimalPhotoItem.tsx` - Component to display a single photo from storage ✅
+  - `frontend/src/components/features/AnimalProfileList.tsx` - Component to display/select/delete animal profiles ✅ (Refactored for multi-select)
+  - `frontend/src/components/features/AddAnimalProfileForm.tsx` - Component to add new animal profiles ✅ (Responsiveness improved)
+  - `frontend/src/components/features/PhotoGallery.tsx` - Component to display photos for selected profile ✅ (Responsiveness improved) - *Role may change*
+  - `frontend/src/components/features/AnimalPhotoItem.tsx` - Component to display a single photo from storage ✅ - *May be replaced by PhotoThumbnail*
   - `frontend/src/components/features/PhotoUploader.tsx` - Component to handle photo uploads ✅
+  - `frontend/src/components/features/ImageGenerationPanel.tsx` - Component for image generation controls ✅ (Refactored for multi-select)
+  - `frontend/src/components/features/SelectedPhotosPanel.tsx` - Component for selecting photos per profile ✅ (New)
   - `frontend/src/components/common/Card.tsx` - Reusable Card component ✅
   - `frontend/src/components/common/Button.tsx` - Reusable Button component ✅
   - `frontend/src/components/common/Input.tsx` - Reusable Input component ✅
+  - `frontend/src/components/common/PhotoThumbnail.tsx` - Component to display image from storage path ✅ (New)
 - `functions/` - Firebase Cloud Functions code
 - `firestore.rules` - Firestore security rules
 - `database.rules.json` - **Realtime Database** security rules
