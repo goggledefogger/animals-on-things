@@ -37,9 +37,15 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
 - [x] **Implement Animal Profile Management (Frontend & Realtime Database)**
   - [x] Frontend: UI Component to display list of Animal Profiles (read from Realtime Database using `uid`).
   - [x] Frontend: UI Component to create a new Animal Profile (write to Realtime Database, associated with `uid`).
-  - [ ] Frontend: UI Component to delete an Animal Profile (delete from Realtime Database).
+  - [x] Frontend: UI Component to delete an Animal Profile (delete from Realtime Database).
 - [ ] **Implement Animal Photo Management (Frontend & Storage/Realtime Database)**
-  - [ ] Frontend: UI Component to display photo gallery for a selected Animal Profile (read photo metadata from Realtime Database).
+  - [/] Frontend: UI Component to display photo gallery for a selected Animal Profile (read photo metadata from Realtime Database).
+    - [x] Handle profile selection.
+    - [x] Create hook to fetch photo metadata (`useAnimalPhotos`).
+    - [x] Create `PhotoGallery` component (displays placeholder). 
+    - [ ] Render actual images from Storage.
+    - [ ] Add photo delete button.
+    - [ ] Add photo selection mechanism.
   - [ ] Frontend: UI Component to upload photos to Firebase Storage (associated with selected Profile & `uid`). Store metadata (storagePath) in Realtime Database.
   - [ ] Frontend: UI Component to select a photo for generation.
   - [ ] Frontend: UI Component to delete a photo (delete from Storage and Realtime Database).
@@ -93,15 +99,21 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
 - `README.md` - Project Overview
 - `TASKS.md` - Implementation Tasks (this file)
 - `frontend/` - React application code
-  - `frontend/src/App.tsx` - Main application component, uses AuthContext ✅
+  - `frontend/src/App.tsx` - Main application component, orchestrates profile/photo view ✅
   - `frontend/src/main.tsx` - Application entry point, wraps App with AuthProvider ✅
   - `frontend/src/firebase.ts` - Firebase configuration and initialization ✅
   - `frontend/src/contexts/AuthContext.tsx` - React context for authentication state ✅
   - `frontend/src/types/AnimalProfile.ts` - TypeScript type for Animal Profile ✅
-  - `frontend/src/hooks/useAnimalProfiles.ts` - Hook for fetching and adding animal profiles ✅
-  - `frontend/src/components/features/AnimalProfileList.tsx` - Component to display animal profiles ✅
+  - `frontend/src/types/AnimalPhoto.ts` - TypeScript type for Animal Photo ✅
+  - `frontend/src/hooks/useAnimalProfiles.ts` - Hook for fetching and managing animal profiles ✅
+  - `frontend/src/hooks/useAnimalPhotos.ts` - Hook for fetching photos for a profile ✅
+  - `frontend/src/components/features/AnimalProfileList.tsx` - Component to display/select/delete animal profiles ✅
   - `frontend/src/components/features/AddAnimalProfileForm.tsx` - Component to add new animal profiles ✅
-- `functions/` - Firebase Cloud Functions code (e.g., Node.js/TypeScript)
+  - `frontend/src/components/features/PhotoGallery.tsx` - Component to display photos for selected profile ✅
+  - `frontend/src/components/common/Card.tsx` - Reusable Card component ✅
+  - `frontend/src/components/common/Button.tsx` - Reusable Button component ✅
+  - `frontend/src/components/common/Input.tsx` - Reusable Input component ✅
+- `functions/` - Firebase Cloud Functions code
 - `firestore.rules` - Firestore security rules
 - `database.rules.json` - **Realtime Database** security rules
 - `storage.rules` - Cloud Storage security rules
