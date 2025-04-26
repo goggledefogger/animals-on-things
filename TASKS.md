@@ -31,24 +31,26 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
   - [x] Integrate Firebase SDK into the React app (`npm install firebase`, `src/firebase.ts`).
   - [x] Implement logic to sign in user anonymously on app load (`frontend/src/App.tsx`).
   - [x] Manage and provide user state (`uid`) to components (via `AuthContext`).
-
-## In Progress Tasks
-
 - [x] **Implement Animal Profile Management (Frontend & Realtime Database)**
   - [x] Frontend: UI Component to display list of Animal Profiles (read from Realtime Database using `uid`).
   - [x] Frontend: UI Component to create a new Animal Profile (write to Realtime Database, associated with `uid`).
   - [x] Frontend: UI Component to delete an Animal Profile (delete from Realtime Database).
-- [ ] **Implement Animal Photo Management (Frontend & Storage/Realtime Database)**
-  - [/] Frontend: UI Component to display photo gallery for a selected Animal Profile (read photo metadata from Realtime Database).
+- [x] **Implement Animal Photo Management (Frontend & Storage/Realtime Database)** (Partially Complete)
+  - [x] Frontend: UI Component to display photo gallery for a selected Animal Profile (read photo metadata from Realtime Database).
     - [x] Handle profile selection.
     - [x] Create hook to fetch photo metadata (`useAnimalPhotos`).
-    - [x] Create `PhotoGallery` component (displays placeholder). 
-    - [ ] Render actual images from Storage.
-    - [ ] Add photo delete button.
-    - [ ] Add photo selection mechanism.
-  - [ ] Frontend: UI Component to upload photos to Firebase Storage (associated with selected Profile & `uid`). Store metadata (storagePath) in Realtime Database.
-  - [ ] Frontend: UI Component to select a photo for generation.
-  - [ ] Frontend: UI Component to delete a photo (delete from Storage and Realtime Database).
+    - [x] Create `PhotoGallery` component (displays placeholder).
+    - [x] Render actual images from Storage (using `AnimalPhotoItem`).
+    - [x] Add photo delete button UI (`AnimalPhotoItem`).
+    - [x] Implement photo delete logic (Storage & Realtime Database) (`PhotoGallery`).
+    - [x] Add photo selection mechanism (state in `PhotoGallery`, UI in `AnimalPhotoItem`).
+
+## In Progress Tasks
+
+- [ ] **Implement Animal Photo Management (Frontend & Storage/Realtime Database)** (Continued)
+  - [ ] Frontend: UI Component to upload photos to Firebase Storage (associated with selected Profile & `uid`). Store metadata (storagePath) in Realtime Database (`PhotoUploader`).
+- [ ] Frontend: UI Component to select a photo for generation (using the selection state).
+- [ ] Frontend: UI Component to delete a photo (consolidated delete logic - *Seems done above*).
 - [ ] **Implement Image Generation Cloud Function (`generateImage`)**
   - [ ] Setup Cloud Function project (e.g., `functions/src/index.ts` if using TS).
   - [ ] Add necessary dependencies (`firebase-admin`, `firebase-functions`, `openai`, etc.).
@@ -110,6 +112,8 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
   - `frontend/src/components/features/AnimalProfileList.tsx` - Component to display/select/delete animal profiles ✅
   - `frontend/src/components/features/AddAnimalProfileForm.tsx` - Component to add new animal profiles ✅
   - `frontend/src/components/features/PhotoGallery.tsx` - Component to display photos for selected profile ✅
+  - `frontend/src/components/features/AnimalPhotoItem.tsx` - Component to display a single photo from storage ✅
+  - `frontend/src/components/features/PhotoUploader.tsx` - Component to handle photo uploads ✅
   - `frontend/src/components/common/Card.tsx` - Reusable Card component ✅
   - `frontend/src/components/common/Button.tsx` - Reusable Button component ✅
   - `frontend/src/components/common/Input.tsx` - Reusable Input component ✅

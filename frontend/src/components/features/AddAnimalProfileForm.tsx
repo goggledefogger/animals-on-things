@@ -31,11 +31,11 @@ export const AddAnimalProfileForm: React.FC = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 pt-4 border-t dark:border-gray-600">
+    <form onSubmit={handleSubmit} className="mt-3 pt-3 sm:mt-4 sm:pt-4 border-t dark:border-gray-600">
       <label htmlFor="profileName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
         Add New Animal Profile:
       </label>
-      <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
         <Input
           id="profileName"
           type="text"
@@ -44,12 +44,12 @@ export const AddAnimalProfileForm: React.FC = () => {
           placeholder="e.g., Sparky the Squirrel"
           disabled={isAdding}
           required
-          className="flex-grow"
+          className="w-full sm:flex-grow"
         />
         <Button
           type="submit"
           disabled={isAdding || !name.trim()}
-          className="sm:w-auto"
+          className="w-full sm:w-auto"
         >
           {isAdding ? 'Adding...' : 'Add Profile'}
         </Button>

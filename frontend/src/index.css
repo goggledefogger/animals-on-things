@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 /* The single @import "tailwindcss" replaces all three of these directives in Tailwind v4:
-   @tailwind base;
-   @tailwind components;
-   @tailwind utilities;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 */
 
 /* Keep only the tailwind directives. 

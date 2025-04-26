@@ -32,10 +32,12 @@ if (import.meta.env.DEV) {
   console.log("Connecting to Firebase Emulators");
   // Default ports, ensure they match firebase.json
   try {
-    connectAuthEmulator(auth, "http://localhost:9099");
-    connectDatabaseEmulator(db, "localhost", 9000);
-    connectStorageEmulator(storage, "localhost", 9199);
-    connectFunctionsEmulator(functions, "localhost", 5001);
+    // ** Temporarily commented out to force connection to LIVE Firebase services **
+    // connectAuthEmulator(auth, "http://localhost:9099");
+    // connectDatabaseEmulator(db, "localhost", 9000);
+    // connectStorageEmulator(storage, "localhost", 9199);
+    // connectFunctionsEmulator(functions, "localhost", 5001);
+    console.log("Emulator connections COMMENTED OUT - using LIVE services.");
   } catch (error) {
     console.error("Error connecting to Firebase emulators:", error);
   }

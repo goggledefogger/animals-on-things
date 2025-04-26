@@ -48,20 +48,20 @@ export const AnimalProfileList: React.FC<AnimalProfileListProps> = ({ selectedPr
         {profiles.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 mb-3 text-center">You haven't added any animal profiles yet.</p>
         ) : (
-          <ul className="space-y-3 mb-4">
+          <ul className="space-y-2 mb-4">
             {profiles.map((profile) => {
               const isSelected = selectedProfile?.id === profile.id;
               const isDeleting = profile.id === deletingId;
               return (
                 <li 
                   key={profile.id} 
-                  className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 border rounded-md shadow-sm transition-all duration-150 cursor-pointer 
+                  className={`relative flex flex-row justify-between items-center p-2 sm:p-3 border rounded-md shadow-sm transition-all duration-150 cursor-pointer 
                     ${isDeleting ? 'opacity-50' : 'hover:shadow-md'} 
                     ${isSelected ? 'bg-indigo-100 dark:bg-indigo-900/50 border-indigo-300 dark:border-indigo-600' : 'bg-gray-50 dark:bg-gray-700 dark:border-gray-600'}`}
                   onClick={() => !isDeleting && handleSelectProfile(profile)}
                 >
                   <span 
-                    className={`font-medium text-gray-800 dark:text-gray-100 truncate mr-2 ${isSelected ? 'text-indigo-800 dark:text-indigo-200' : ''}`}
+                    className={`font-medium text-gray-800 dark:text-gray-100 truncate flex-1 ${isSelected ? 'text-indigo-800 dark:text-indigo-200' : ''}`}
                     title={profile.name}
                   >
                     {profile.name}
@@ -69,7 +69,7 @@ export const AnimalProfileList: React.FC<AnimalProfileListProps> = ({ selectedPr
                   <button 
                       onClick={(e) => { e.stopPropagation(); handleDelete(profile.id, profile.name); }}
                       disabled={isDeleting}
-                      className={`mt-2 sm:mt-0 ml-0 sm:ml-2 flex-shrink-0 px-2 py-1 text-xs font-medium rounded focus:outline-none focus:ring-1 focus:ring-red-500 disabled:opacity-50 
+                      className={`flex-shrink-0 px-2 py-1 text-xs font-medium rounded focus:outline-none focus:ring-1 focus:ring-red-500 disabled:opacity-50 
                         ${isDeleting ? 'cursor-not-allowed' : 'hover:bg-red-50 dark:hover:bg-red-900/30'} 
                         text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 border border-red-300 dark:border-red-500`}
                     >
@@ -86,8 +86,8 @@ export const AnimalProfileList: React.FC<AnimalProfileListProps> = ({ selectedPr
   }
 
   return (
-    <Card className="w-full max-w-lg mb-6">
-      <h2 className="text-2xl font-semibold mb-4 text-center text-gray-700 dark:text-gray-200">Your Animal Profiles</h2>
+    <Card className="w-full mb-4 sm:mb-6">
+      <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4 text-center text-gray-700 dark:text-gray-200">Your Animal Profiles</h2>
       {renderContent()}
     </Card>
   );
