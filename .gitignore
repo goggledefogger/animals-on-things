@@ -1,13 +1,13 @@
-node_modules
+node_modules/
 
 .env
-
 .log
 
 .firebase/
-
 .firebaserc
 
 dist/
-
 lib/
+
+# TypeScript v1 declaration files
+typings/

@@ -12,9 +12,6 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
 - [x] Setup Frontend Project Structure (React/TS/Vite/Tailwind)
   - [x] Initialize Vite project with React & TypeScript template (`frontend/`)
   - [x] Install and configure Tailwind CSS
-
-## In Progress Tasks
-
 - [x] **Setup Firebase Project & Local Emulators**
   - [x] Create Firebase project in the console.
   - [x] Install Firebase CLI (`npm install -g firebase-tools`).
@@ -33,10 +30,13 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
 - [x] **Implement Anonymous Authentication (Frontend)**
   - [x] Integrate Firebase SDK into the React app (`npm install firebase`, `src/firebase.ts`).
   - [x] Implement logic to sign in user anonymously on app load (`frontend/src/App.tsx`).
-  - [ ] Manage and provide user state (`uid`) to components (next step).
-- [ ] **Implement Animal Profile Management (Frontend & Realtime Database)**
-  - [ ] Frontend: UI Component to display list of Animal Profiles (read from Realtime Database using `uid`).
-  - [ ] Frontend: UI Component to create a new Animal Profile (write to Realtime Database, associated with `uid`).
+  - [x] Manage and provide user state (`uid`) to components (via `AuthContext`).
+
+## In Progress Tasks
+
+- [x] **Implement Animal Profile Management (Frontend & Realtime Database)**
+  - [x] Frontend: UI Component to display list of Animal Profiles (read from Realtime Database using `uid`).
+  - [x] Frontend: UI Component to create a new Animal Profile (write to Realtime Database, associated with `uid`).
   - [ ] Frontend: UI Component to delete an Animal Profile (delete from Realtime Database).
 - [ ] **Implement Animal Photo Management (Frontend & Storage/Realtime Database)**
   - [ ] Frontend: UI Component to display photo gallery for a selected Animal Profile (read photo metadata from Realtime Database).
@@ -93,6 +93,14 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
 - `README.md` - Project Overview
 - `TASKS.md` - Implementation Tasks (this file)
 - `frontend/` - React application code
+  - `frontend/src/App.tsx` - Main application component, uses AuthContext ✅
+  - `frontend/src/main.tsx` - Application entry point, wraps App with AuthProvider ✅
+  - `frontend/src/firebase.ts` - Firebase configuration and initialization ✅
+  - `frontend/src/contexts/AuthContext.tsx` - React context for authentication state ✅
+  - `frontend/src/types/AnimalProfile.ts` - TypeScript type for Animal Profile ✅
+  - `frontend/src/hooks/useAnimalProfiles.ts` - Hook for fetching and adding animal profiles ✅
+  - `frontend/src/components/features/AnimalProfileList.tsx` - Component to display animal profiles ✅
+  - `frontend/src/components/features/AddAnimalProfileForm.tsx` - Component to add new animal profiles ✅
 - `functions/` - Firebase Cloud Functions code (e.g., Node.js/TypeScript)
 - `firestore.rules` - Firestore security rules
 - `database.rules.json` - **Realtime Database** security rules

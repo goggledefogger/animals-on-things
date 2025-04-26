@@ -11,6 +11,53 @@ This document details the technical requirements for Phase 1, using **Firebase**
     -   **Frontend:** Single Page Application (SPA) using component-based architecture (React).
     -   **Backend:** Serverless (Firebase Cloud Functions), Database-as-a-Service (**Realtime Database**), Storage-as-a-Service (Firebase Storage), Auth-as-a-Service (Firebase Authentication).
 
+### Frontend Architecture Details
+
+-   **Folder Structure (`frontend/src/`):**
+    -   `App.tsx`: Main application component, sets up layout and routing (if needed later).
+    -   `main.tsx`: Application entry point, initializes React, wraps App with providers.
+    -   `firebase.ts`: Firebase configuration and SDK initialization.
+    -   `components/`: Reusable UI components (e.g., Button, Card, Input, Modal).
+        -   `common/`: General-purpose, stateless components.
+        -   `features/`: Components specific to a feature area (e.g., `AnimalProfile/`, `ImageGeneration/`).
+            -   `AnimalProfileList.tsx`
+            -   `AddAnimalProfileForm.tsx`
+            -   `PhotoUploader.tsx`
+            -   `PhotoGallery.tsx`
+            -   `StyleSelector.tsx`
+            -   `GenerationResult.tsx`
+    -   `contexts/`: React Context providers and hooks (e.g., `AuthContext.tsx`).
+    -   `hooks/`: Custom React hooks for encapsulating logic.
+        -   `useAuth.ts`: (Already part of AuthContext) Hook to access auth state.
+        -   `useAnimalProfiles.ts`: Hook for fetching and managing animal profiles (CRUD operations via Firebase Realtime Database).
+        -   `useAnimalPhotos.ts`: Hook for fetching and managing photos for a specific profile (CRUD operations via Firebase Storage & Realtime Database).
+        -   `useImageGeneration.ts`: Hook for calling the `generateImage` Cloud Function and managing generation state.
+    -   `services/`: Modules for interacting with external services (e.g., Firebase functions wrappers, though often hooks are sufficient).
+    -   `types/`: TypeScript type definitions (e.g., `AnimalProfile.ts`, `AnimalPhoto.ts`).
+    -   `utils/`: Utility functions (e.g., date formatters, validation helpers).
+    -   `assets/`: Static assets like images, fonts.
+    -   `styles/`: Global styles or Tailwind configuration extensions (though often `index.css` is sufficient).
+
+-   **State Management:**
+    -   **Global State:** React Context API (`contexts/`) for authentication state (`AuthContext`). Will consider adding context for managing currently selected animal profile if needed across multiple components.
+    -   **Remote State / Data Fetching:** Custom hooks (`hooks/`) will manage interaction with Firebase (Realtime Database, Storage, Functions). These hooks will handle fetching data, loading states, and errors. For Realtime Database, hooks will utilize `onValue` listeners for real-time updates where appropriate.
+    -   **Local Component State:** Standard `useState` and potentially `useReducer` for UI state within individual components (e.g., form inputs, modal visibility).
+
+-   **Component Design:**
+    -   Prioritize functional components with hooks.
+    -   Aim for clear separation of concerns:
+        -   **Feature Components (`components/features/`):** Combine UI presentation with data fetching/mutation logic via custom hooks.
+        -   **Common Components (`components/common/`):** Purely presentational, reusable UI elements receiving data and callbacks via props.
+    -   Keep components relatively small and focused on a single responsibility.
+
+-   **Firebase Interactions:**
+    -   All direct interactions with Firebase services (Auth, Realtime Database, Storage, Functions) will be encapsulated within custom hooks (`hooks/`) or dedicated service modules (`services/` if complexity warrants).
+    -   Components will consume these hooks to get data and trigger actions (e.g., `const { profiles, addProfile, isLoading } = useAnimalProfiles();`).
+    -   Hooks will leverage the `currentUser.uid` from `useAuth()` to interact with the correct data paths in Firebase.
+    -   Realtime Database interactions will use the `firebase/database` SDK.
+    -   Storage interactions will use the `firebase/storage` SDK.
+    -   Cloud Function calls will use the `firebase/functions` SDK (HTTPS callable functions).
+
 -   **State management**
     -   **Frontend (Phase 1):** Firebase SDK for managing auth state (anonymous user) and **Realtime Database** interactions. React's built-in state management (`useState`, `useContext`) for UI state. Realtime Database listeners provide reactive data updates.
     -   **Backend:** Cloud Functions are typically stateless, relying on **Realtime Database**/Storage for state persistence.
