@@ -1,24 +1,34 @@
 import * as functions from "firebase-functions/v1";
-import {HttpsError} from "firebase-functions/v1/https";
-// We need CallableContext for context.auth, but it wasn't explicitly used
-// import { CallableContext } from "firebase-functions/v1/https";
-// import * as admin from "firebase-admin"; // Assuming initialized elsewhere
+import { HttpsError } from "firebase-functions/v1/https";
+import * as admin from "firebase-admin";
 
-// TODO: Initialize admin SDK if not done in index.ts
-// try { admin.initializeApp(); } catch (e) { /* Already initialized */ }
+// Admin SDK is initialized in index.ts
 
-interface GenerateImageData {
-  photoId: string;
+// Define the structure for a single selection expected from the client
+interface GenerationSelection {
   profileId: string;
+  photoId: string;
+}
+
+// Updated interface for the data expected by the function
+interface GenerateImageRequestData {
+  selections: GenerationSelection[];
   style: string;
   prompt?: string;
 }
 
+// Structure for photo metadata fetched from RTDB
+interface AnimalPhotoData {
+  storagePath: string;
+  createdAt: number;
+  // Add other fields if they exist in your RTDB schema (e.g., filename, contentType)
+}
+
 /**
- * Callable function to generate a new image based on an existing photo,
- * a style, and an optional custom prompt.
+ * Callable function to generate a new COMBINED image based on multiple
+ * selected photos, a style, and an optional custom prompt.
  */
-export const generateImage = functions.https.onCall(async (data, context) => {
+export const generateImage = functions.https.onCall(async (data: GenerateImageRequestData, context) => {
   // 1. Authentication Check
   if (!context.auth) {
     throw new HttpsError(
@@ -28,83 +38,115 @@ export const generateImage = functions.https.onCall(async (data, context) => {
   }
   const uid = context.auth.uid;
 
-  // 2. Input Validation (Data is the first argument)
-  // Cast data to the expected interface for type safety within the function
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const {photoId, profileId, style, prompt} = data as GenerateImageData;
+  // 2. Input Validation 
+  const { selections, style, prompt } = data;
 
-  if (!photoId || !profileId || !style) {
-    // Technically, this might be redundant if types enforce non-null,
-    // but good for runtime safety
+  if (!style || !selections || !Array.isArray(selections) || selections.length === 0) {
     throw new HttpsError(
       "invalid-argument",
-      "Missing required fields: photoId, profileId, or style.",
+      "Missing required fields: style and at least one selection {profileId, photoId}.",
     );
   }
 
-  // TODO: Validate style against allowed styles
-  // TODO: Validate prompt length/content if necessary
+  // Further validation on selections array elements
+  if (selections.some(sel => !sel.profileId || !sel.photoId)) {
+     throw new HttpsError(
+      "invalid-argument",
+      "Each selection must include a valid profileId and photoId.",
+    );
+  }
 
-  // Use prompt in log to satisfy linter for now
   functions.logger.info(
-    `Generating image for user ${uid}, photo ${photoId}, ` +
-    `profile ${profileId}, style ${style}, prompt: ${prompt || "(none)"}`,
+    `Generating combined image for user ${uid}, ` +
+    `style ${style}, prompt: ${prompt || "(none)"}, ` +
+    `selections: ${JSON.stringify(selections)}`,
   );
 
-  // 3. Permission Check (Example: Check if user owns the profile/photo)
-  // TODO: Implement actual permission logic based on your Firestore structure
-  // const profileRef = admin.firestore().collection('profiles').doc(profileId);
-  // const profileDoc = await profileRef.get();
-  // if (!profileDoc.exists || profileDoc.data()?.userId !== uid) {
-  //   throw new HttpsError(
-  //     'permission-denied',
-  //     'User does not have permission to access this profile.',
-  //   );
-  // }
-  // Similar check for photo ownership might be needed
+  // 3. Permission Check & Fetch Photo Info (Iterate through selections)
+  const db = admin.database();
+  const photoFetchPromises = selections.map(async (selection) => {
+    const photoRef = db.ref(`/profiles/${uid}/${selection.profileId}/photos/${selection.photoId}`);
+    const snapshot = await photoRef.get();
+    if (!snapshot.exists()) {
+      throw new HttpsError(
+        "not-found",
+        `Photo data not found for profile ${selection.profileId}, photo ${selection.photoId}.`,
+      );
+    }
+    // TODO: Add permission check if profile doesn't inherently belong to user uid path
+    // For example, if profiles were stored in a root collection.
+    
+    const photoData = snapshot.val() as AnimalPhotoData;
+    if (!photoData.storagePath) {
+       throw new HttpsError(
+        "internal", // Or invalid-argument if path should always exist
+        `Missing storagePath for photo ${selection.photoId} in profile ${selection.profileId}.`,
+      );
+    }
+    return { 
+      ...selection, // Keep profileId, photoId 
+      storagePath: photoData.storagePath 
+    };
+  });
 
-  // 4. Fetch Original Photo Info (e.g., get original image URL)
-  // TODO: Fetch the original photo URL or data needed for generation service
-  // Using originalImageUrl to satisfy linter for now
-  const originalImageUrl = "placeholder/original/image/url.jpg";
-  functions.logger.info(`Using original image: ${originalImageUrl}`);
+  let fetchedPhotoDetails;
+  try {
+    fetchedPhotoDetails = await Promise.all(photoFetchPromises);
+    functions.logger.info("Successfully fetched details for all selected photos:", fetchedPhotoDetails);
+  } catch (error) {
+    functions.logger.error("Error fetching photo details:", error);
+    if (error instanceof HttpsError) {
+      throw error; // Re-throw HttpsError
+    }
+    throw new HttpsError("internal", "Failed to fetch details for selected photos.");
+  }
 
-  // 5. Call External Image Generation Service
-  // TODO: Replace with actual API call
-  functions.logger.info("Calling external image generation service...");
-  // const generationResponse = await callImageGenerationApi(
-  //    originalImageUrl, style, prompt
-  // );
-  // const generatedImageUrlFromApi = generationResponse.imageUrl;
+  // ---- CORE AI LOGIC ----
+  // 4. Prepare Input for AI Service (THIS IS THE COMPLEX PART)
+  // We have `fetchedPhotoDetails` which is an array: [{ profileId, photoId, storagePath }, ...]
+  // We also have `style` and `prompt`.
+  
+  // Strategy needed:
+  // - How to represent multiple images to OpenAI? (Likely via detailed text prompt)
+  // - Can we fetch image descriptions or use URLs directly if API supports?
+  // - Construct a final prompt incorporating the user's `prompt`, the `style`,
+  //   and descriptions of the animals/images referenced by `fetchedPhotoDetails`.
+
+  // Example Placeholder Prompt Construction:
+  const animalDescriptions = fetchedPhotoDetails.map((p, i) => `animal ${i+1} from photo ${p.photoId.substring(0,4)}`).join(" and "); // VERY basic
+  const combinedPrompt = `Create an image in a ${style} style featuring ${animalDescriptions}. ${prompt || ""}`.trim();
+  functions.logger.info(`Constructed AI Prompt: ${combinedPrompt}`);
+
+  // 5. Call External Image Generation Service (OpenAI)
+  // TODO: Replace with actual OpenAI API call using the combined prompt
+  functions.logger.info("Calling external image generation service (OpenAI)...", {combinedPrompt});
+  // const generatedImageUrlFromApi = await callOpenAIImageGeneration(combinedPrompt, {/* potentially other options like size */});
   const generatedImageUrlFromApi =
-    "placeholder/generated/image/url_from_api.jpg";
+    "placeholder/combined_generated_image.jpg"; // Placeholder
   functions.logger.info("Image generation service finished.");
 
-  // 6. Upload Generated Image to Cloud Storage (optional)
-  // TODO: Implement upload logic if needed
-  // const bucket = admin.storage().bucket();
-  // const destination = `profiles/${profileId}/photos/${photoId}/generated/` +
-  //   `${new Date().toISOString()}_${style}.jpg`;
-  // await bucket.upload(generatedImageUrlFromApi, {destination});
-  // const finalImageUrl = await getSignedUrlForPath(destination);
-  const finalImageUrl = generatedImageUrlFromApi;
-  functions.logger.info(`Generated image at: ${finalImageUrl}`);
+  // ---- END CORE AI LOGIC ----
 
-  // 7. Save Metadata to Firestore (optional)
-  // TODO: Save details about the generated image (URL, style, prompt, ts)
-  // const generatedImageRef = admin.firestore()
-  //   .collection('profiles').doc(profileId)
-  //   .collection('photos').doc(photoId)
-  //   .collection('generatedImages').doc(); // Auto-ID
-  // await generatedImageRef.set({
+  // 6. Upload Generated Image to Cloud Storage (Optional but Recommended)
+  // TODO: Decide on a storage path for combined images. Maybe not tied to a single profile?
+  // const bucket = admin.storage().bucket(); 
+  // const destination = `users/${uid}/generated/${new Date().toISOString()}_combined.jpg`;
+  // await bucket.upload(generatedImageUrlFromApi, { destination });
+  // const finalImageUrl = await getSignedUrlForPath(destination);
+  const finalImageUrl = generatedImageUrlFromApi; // Use placeholder for now
+  functions.logger.info(`Combined generated image at: ${finalImageUrl}`);
+
+  // 7. Save Metadata to Realtime Database (Optional)
+  // TODO: Save details about the generated image (URL, style, prompt, source selections, ts)
+  // const generatedImagesRef = db.ref(`/generatedImages/${uid}`).push();
+  // await generatedImagesRef.set({
   //   style: style,
   //   prompt: prompt || null,
+  //   selections: fetchedPhotoDetails, // Save the input selections
   //   imageUrl: finalImageUrl,
-  //   createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  //   userId: uid,
+  //   createdAt: admin.database.ServerValue.TIMESTAMP,
   // });
 
   // 8. Return Result
-  // Ensure the return type matches what client expects
-  return {imageUrl: finalImageUrl};
+  return { imageUrl: finalImageUrl };
 });

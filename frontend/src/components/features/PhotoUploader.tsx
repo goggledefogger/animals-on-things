@@ -16,6 +16,7 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({ profileId }) => {
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<boolean>(false);
+  const [inputKey, setInputKey] = useState<string>(Date.now().toString()); // Key to reset file input
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -65,10 +66,8 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({ profileId }) => {
       console.log('Metadata added to Realtime Database');
 
       setUploadSuccess(true);
-      setSelectedFile(null); // Clear selection after successful upload
-      // Clear the file input visually (requires a bit of a trick)
-      const fileInput = document.getElementById('photo-upload-input') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
+      setSelectedFile(null); // Clear selection state
+      setInputKey(Date.now().toString()); // Change key to reset file input
 
     } catch (error) {
       console.error("Upload failed:", error);
@@ -79,26 +78,27 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({ profileId }) => {
   };
 
   return (
-    <div className="my-4 p-4 border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-800 shadow-sm">
-      <h4 className="text-md font-medium mb-2 text-gray-600 dark:text-gray-300">Upload New Photo</h4>
+    <div className="my-3 p-3 border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-800 shadow-sm">
+      <h4 className="text-sm font-medium mb-2 text-gray-600 dark:text-gray-300">Upload New Photo</h4>
       <div className="flex items-center space-x-2">
         <Input
-          id="photo-upload-input" // ID for clearing the input
+          key={inputKey} // Use key to allow resetting
           type="file"
           accept="image/*" // Accept only image files
           onChange={handleFileChange}
-          className="flex-grow text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300 dark:hover:file:bg-indigo-900/70 dark:text-gray-400" // Basic file input styling
+          className="flex-grow text-sm file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300 dark:hover:file:bg-indigo-900/70 dark:text-gray-400" // Adjusted padding
           disabled={isUploading}
         />
         <Button
           onClick={handleUpload}
           disabled={!selectedFile || isUploading}
+          className="text-sm px-3 py-1" // Adjusted padding for consistency
         >
           {isUploading ? 'Uploading...' : 'Upload'}
         </Button>
       </div>
-      {uploadError && <p className="mt-2 text-sm text-red-600 dark:text-red-400">Error: {uploadError}</p>}
-      {uploadSuccess && <p className="mt-2 text-sm text-green-600 dark:text-green-400">Photo uploaded successfully!</p>}
+      {uploadError && <p className="mt-2 text-xs text-red-600 dark:text-red-400">Error: {uploadError}</p>}
+      {uploadSuccess && <p className="mt-2 text-xs text-green-600 dark:text-green-400">Photo uploaded successfully!</p>}
     </div>
   );
 }; 

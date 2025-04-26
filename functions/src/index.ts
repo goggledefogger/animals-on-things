@@ -1,3 +1,8 @@
+import * as admin from "firebase-admin";
+
+// Initialize Firebase Admin SDK ONCE at the start
+admin.initializeApp();
+
 /**
  * Import function triggers from their respective submodules:
  *
@@ -7,9 +12,10 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
-// Start writing functions
-// https://firebase.google.com/docs/functions/typescript
+// Import and re-export functions from their files
+export { generateImage } from "./generateImage";
 
+// Example placeholder (can be removed)
 // export const helloWorld = onRequest((request, response) => {
 //   logger.info("Hello logs!", {structuredData: true});
 //   response.send("Hello from Firebase!");
