@@ -29,7 +29,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 const storage = getStorage(app);
-const functions = getFunctions(app);
+const functions = getFunctions(app, 'us-central1');
 
 // Connect to Emulators in development
 // Vite exposes env variables through import.meta.env

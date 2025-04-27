@@ -5,18 +5,25 @@ import { PhotoUploader } from './PhotoUploader';
 import { MiniPhotoGallery } from './PhotoGallery'; // Correct the import path
 import { SelectedPhotoMap } from '../../App'; // Import type from App
 
+// Define input type for the delete handler prop
+interface DeletePhotoInput {
+  profileId: string;
+  photoId: string;
+  storagePath: string;
+}
+
 interface SelectedPhotosPanelProps {
   selectedProfiles: AnimalProfile[];
   selectedPhotoMap: SelectedPhotoMap;
   onPhotoSelect: (profileId: string, photoId: string) => void;
-  // Remove title prop from PhotoThumbnail call below
-  // onPhotoDelete?: (profileId: string, photoId: string, storagePath: string) => Promise<void>; // Keep if needed, but MiniGallery doesn't use it
+  onDeletePhoto: (input: DeletePhotoInput) => Promise<boolean>;
 }
 
 export const SelectedPhotosPanel: React.FC<SelectedPhotosPanelProps> = ({
     selectedProfiles,
     selectedPhotoMap,
-    onPhotoSelect
+    onPhotoSelect,
+    onDeletePhoto
 }) => {
 
   if (selectedProfiles.length === 0) {
@@ -40,6 +47,7 @@ export const SelectedPhotosPanel: React.FC<SelectedPhotosPanelProps> = ({
               profileName={profile.name}
               selectedPhotoId={selectedPhotoMap[profile.id] || null}
               onPhotoSelect={onPhotoSelect}
+              onDeletePhoto={onDeletePhoto}
             />
             <div className="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3">
                 <PhotoUploader profileId={profile.id} />

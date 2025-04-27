@@ -50,7 +50,11 @@ export function useImageGeneration(): UseImageGenerationReturn {
     try {
       const functions = getFunctions();
       // Make sure the function name 'generateImage' matches your deployed function
-      const generateImageFunction = httpsCallable<GenerateImageInput, GenerateImageOutput>(functions, 'generateImage');
+      const generateImageFunction = httpsCallable<GenerateImageInput, GenerateImageOutput>(
+        functions,
+        'generateImage',
+        { timeout: 540000 } // 540 seconds (9 minutes) in milliseconds
+      );
 
       const result = await generateImageFunction(input);
       // On success, result.data should contain { imageUrl: string }

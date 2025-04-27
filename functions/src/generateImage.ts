@@ -1,7 +1,7 @@
 import * as functions from "firebase-functions/v1";
-import { HttpsError } from "firebase-functions/v1/https";
+import {HttpsError} from "firebase-functions/v1/https";
 import * as admin from "firebase-admin";
-import OpenAI from "openai";
+import OpenAI, {toFile} from "openai";
 
 // Admin SDK should be initialized in index.ts
 
@@ -19,6 +19,22 @@ interface GenerateImageRequestData {
   model?: string; // Optional model override (defaults to gpt-image-1)
 }
 
+// Type for the shape of data read from RTDB for photos
+interface AnimalPhotoData {
+  storagePath: string;
+  createdAt?: number; // Optional, based on schema
+  // Add other fields if they exist (e.g., filename, contentType)
+}
+
+// Define a type for the fetched photo details including profile name and image buffer
+type FetchedPhotoDetail = {
+  profileId: string;
+  photoId: string;
+  profileName: string; // Added profile name
+  storagePath: string;
+  imageBuffer: Buffer;
+};
+
 // Initialize OpenAI client
 const openAIKey = process.env.OPENAI_API_KEY;
 if (!openAIKey) {
@@ -28,186 +44,224 @@ if (!openAIKey) {
 // Initialize client - it will be null if key is missing
 const openai = openAIKey ? new OpenAI({apiKey: openAIKey}) : null;
 
-// Function to fetch descriptive details about selected animals
-async function getAnimalDescriptions(selections: GenerationSelection[]): Promise<string> {
-    // TODO: Fetch richer animal details (e.g., color, key features) beyond name/breed
-    // from Firestore profiles to improve prompt quality for image generation.
-
-    const descriptions: string[] = [];
-    const firestore = admin.firestore();
-
-    try {
-        const profilePromises = selections.map(sel =>
-            firestore.collection('profiles').doc(sel.profileId).get()
-        );
-        const profileSnaps = await Promise.all(profilePromises);
-
-        for (let i = 0; i < profileSnaps.length; i++) {
-            const profileSnap = profileSnaps[i];
-            const selection = selections[i];
-
-            if (profileSnap.exists) {
-                const profileData = profileSnap.data();
-                // --- Placeholder description logic ---
-                const name = profileData?.name || 'pet';
-                const breed = profileData?.breed ? ` ${profileData.breed}` : ''; // Add breed if available
-                descriptions.push(`a${breed} named ${name}`);
-                // --- End placeholder logic ---
-            } else {
-                functions.logger.warn(`Profile data not found for ID: ${selection.profileId}`);
-                descriptions.push(`an animal (Profile ID: ${selection.profileId.substring(0, 4)})`); // Fallback with ID
-            }
-        }
-    } catch (error) {
-        functions.logger.error("Error fetching animal descriptions from Firestore:", error);
-        return `the selected animals (${selections.length})`; // Generic fallback
-    }
-
-    // Log the final constructed description string for debugging
-    const finalDescriptionString = descriptions.length === 0 ? 'the selected animals' :
-                                  descriptions.length === 1 ? descriptions[0] :
-                                  descriptions.slice(0, -1).join(', ') + ' and ' + descriptions.slice(-1);
-    functions.logger.info("Constructed animal descriptions string:", { finalDescriptionString });
-
-    return finalDescriptionString;
-}
-
 /**
- * Callable function to generate a new image based on selected profiles,
- * a style, and an optional custom prompt using OpenAI's image generation API.
+ * Callable function to generate a new image based on multiple
+ * selected photos, a style, and an optional custom prompt.
+ * Logic based on commit 8fb0812e.
  */
-export const generateImage = functions.https.onCall(async (data: GenerateImageRequestData, context: functions.https.CallableContext): Promise<{ imageUrl: string }> => {
-    // 1. Authentication
-    if (!context.auth) {
-        throw new HttpsError('unauthenticated', 'User must be authenticated to generate images.');
+// eslint-disable-next-line max-len
+export const generateImage = functions
+  .runWith({
+    timeoutSeconds: 540, // Set timeout to 9 minutes (max allowed)
+  })
+  .https.onCall(async (data: GenerateImageRequestData, context: functions.https.CallableContext): Promise<{ imageUrl: string }> => {
+  // 1. Authentication Check
+  if (!context.auth) {
+    throw new HttpsError("unauthenticated", "User must be authenticated.");
+  }
+  const uid = context.auth.uid;
+
+  // 2. Input Validation
+  const {selections, style, prompt} = data;
+  const modelToUse = data.model || "gpt-image-1"; // Default to gpt-image-1 for edits
+
+  if (!style || !selections || !Array.isArray(selections) || selections.length === 0) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Missing required fields: style and selections (array of {profileId, photoId}).",
+    );
+  }
+  if (selections.some((sel) => !sel.profileId || !sel.photoId)) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Each selection must include a valid profileId and photoId.",
+    );
+  }
+
+  // Check if OpenAI client was initialized
+  if (!openai) {
+    functions.logger.error("OpenAI client is not initialized. API Key likely missing.", {uid});
+    throw new HttpsError("internal", "Image generation service is not configured correctly.");
+  }
+
+  functions.logger.info(
+    `Generating edited image for user ${uid}, style ${style}, model ${modelToUse}, ` +
+    `prompt: ${prompt || "(none)"}, selections: ${JSON.stringify(selections)}`,
+  );
+
+  // 3. Fetch Profile/Photo Details (Name for prompt, Image Buffer for API)
+  const db = admin.database();
+  const storageBucket = admin.storage().bucket(); // Get storage bucket
+  let fetchedPhotoDetails: FetchedPhotoDetail[];
+  try {
+    const detailFetchPromises = selections.map(async (selection) => {
+      const profileNameRef = db.ref(`/profiles/${uid}/${selection.profileId}/name`);
+      const photoRef = db.ref(`/profiles/${uid}/${selection.profileId}/photos/${selection.photoId}`);
+
+      const [profileSnapshot, photoSnapshot] = await Promise.all([
+        profileNameRef.get(),
+        photoRef.get(),
+      ]);
+
+      if (!photoSnapshot.exists()) {
+        throw new HttpsError("not-found", `Photo data not found for profile ${selection.profileId}, photo ${selection.photoId}.`);
+      }
+      // Profile name might not exist, handle gracefully
+      const profileName = profileSnapshot.exists() ? profileSnapshot.val() : `Profile ${selection.profileId.substring(0, 4)}`;
+      const photoData = photoSnapshot.val() as AnimalPhotoData;
+      if (!photoData.storagePath) {
+        throw new HttpsError("internal", `Missing storagePath for photo ${selection.photoId} in profile ${selection.profileId}.`);
+      }
+
+      // Download image from storage
+      let downloadedImageBuffer: Buffer;
+      try {
+        const file = storageBucket.file(photoData.storagePath);
+        const [buffer] = await file.download();
+        downloadedImageBuffer = buffer;
+        functions.logger.info(`Successfully downloaded image for ${selection.photoId} from ${photoData.storagePath}`, {uid});
+      } catch (downloadError) {
+        functions.logger.error(`Failed to download image ${photoData.storagePath}:`, {uid, downloadError});
+        throw new HttpsError("internal", `Failed to download source image for photo ${selection.photoId}.`);
+      }
+
+      return {
+        ...selection, // Keep profileId, photoId
+        profileName: profileName,
+        storagePath: photoData.storagePath,
+        imageBuffer: downloadedImageBuffer,
+      };
+    });
+
+    fetchedPhotoDetails = await Promise.all(detailFetchPromises);
+    functions.logger.info("Successfully fetched details and image data for all selected photos:", {uid, count: fetchedPhotoDetails.length});
+  } catch (error) {
+    functions.logger.error("Error fetching photo details or downloading images:", {uid, error});
+    if (error instanceof HttpsError) {
+      throw error; // Re-throw HttpsError
     }
-    const userId = context.auth.uid;
+    throw new HttpsError("internal", "Failed to fetch details or download source images for selected photos.");
+  }
 
-    // Check if OpenAI client was initialized correctly
-    if (!openai) {
-        functions.logger.error("OpenAI client is not initialized. API Key likely missing.", { userId });
-        throw new HttpsError("internal", "Image generation service is not configured correctly.");
+  // 4. Construct Text Prompt for OpenAI
+  const animalDescriptions = fetchedPhotoDetails
+    .map((p) => p.profileName || `animal from profile ${p.profileId.substring(0, 4)}`)
+    .join(", "); // e.g., "Sparky, Luna"
+
+  const combinedPrompt = `Create an image in a ${style} style featuring ${animalDescriptions}. ${prompt || ""}`.trim();
+  functions.logger.info(`Constructed AI Prompt: ${combinedPrompt}`, {uid});
+
+  // 5. Call OpenAI Image Edit API
+  let generatedImageBase64: string | undefined;
+  try {
+    // Prepare image data using the toFile helper
+    const inputImagesPromises = fetchedPhotoDetails.map(async (detail, index) => {
+      // Convert buffer to Uploadable using toFile
+      // TODO: Determine file type dynamically from storage metadata if possible
+      const filename = `input_${index}.png`; // Assume PNG for now
+      const mimeType = "image/png"; // Assume PNG
+      functions.logger.info(`Preparing file ${filename} (${mimeType}) for upload`, {uid});
+      return await toFile(detail.imageBuffer, filename, {type: mimeType});
+    });
+    const inputImages = await Promise.all(inputImagesPromises);
+    functions.logger.info(`Prepared ${inputImages.length} input images for OpenAI.`, {uid});
+
+    functions.logger.info("Calling OpenAI images.edit API...", {uid, model: modelToUse});
+
+    const response = await openai.images.edit({ // Using .edit endpoint
+      model: modelToUse,
+      image: inputImages, // Pass the array of Uploadable files
+      prompt: combinedPrompt,
+      n: 1, // Generate one image
+      size: "1024x1024",
+      // quality: "high", // quality param not applicable to edit endpoint
+      user: uid, // Pass the Firebase user ID for monitoring
+    });
+
+    generatedImageBase64 = response.data?.[0]?.b64_json;
+    if (!generatedImageBase64) {
+      functions.logger.error("OpenAI response missing image b64_json data", {uid, responseData: response.data});
+      throw new Error("OpenAI response did not contain image b64_json data.");
     }
-
-    // 2. Input Validation & Model Selection
-    const { selections, style, prompt } = data;
-    const model = data.model || "gpt-image-1"; // Default to gpt-image-1
-
-    // Basic validation
-    if (!Array.isArray(selections) || selections.length === 0 || typeof style !== 'string' || !style) {
-        throw new HttpsError('invalid-argument', 'Request requires a non-empty selections array and a style string.');
+    functions.logger.info("OpenAI image edit successful (received base64 data).", {uid});
+  } catch (error: unknown) {
+    functions.logger.error("OpenAI API call failed:", {uid, error});
+    let errorMessage = "Unknown OpenAI error";
+    if (error instanceof OpenAI.APIError) {
+      errorMessage = error.message || "OpenAI API Error";
+      if (error.code === "invalid_prompt" || error.code === "content_policy_violation") {
+        errorMessage = "Image generation failed due to content policy or prompt issue. Please modify your prompt.";
+      } else if (error.status === 429) {
+        errorMessage = "Image generation service is currently overloaded. Please try again later.";
+      } else if (error.status === 401) {
+        errorMessage = "Image generation service authentication failed.";
+      }
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
     }
-    // Validate structure within selections
-    for (const sel of selections) {
-        if (typeof sel.profileId !== 'string' || !sel.profileId || typeof sel.photoId !== 'string' || !sel.photoId) {
-            throw new HttpsError('invalid-argument', 'Each item in the selections array must have valid profileId and photoId strings.');
-        }
+    throw new HttpsError("internal", `Failed to generate image: ${errorMessage}`);
+  }
+
+  // 6. Upload Generated Image Base64 to Cloud Storage
+  let finalImageUrl = ""; // Initialize final URL
+  try {
+    if (generatedImageBase64) {
+      const bucket = admin.storage().bucket(); // Get default bucket
+      const timestamp = Date.now();
+      const destination = `generated/${uid}/${timestamp}_${style}.png`; // Store as png
+
+      functions.logger.info(`Storing generated image in Firebase Storage: ${destination}`, {uid});
+
+      // Decode base64 string to buffer
+      const imageBuffer = Buffer.from(generatedImageBase64, "base64");
+
+      // Upload buffer to Firebase Storage
+      const file = bucket.file(destination);
+      await file.save(imageBuffer, {
+        metadata: {
+          contentType: "image/png", // Specify content type
+          metadata: {firebaseStorageDownloadTokens: Date.now().toString()},
+        },
+        // public: true, // Uncomment if public access is desired and bucket configured
+      });
+      functions.logger.info("Image successfully uploaded to Firebase Storage.", {uid, destination});
+
+      // Get a signed URL
+      const [signedUrl] = await file.getSignedUrl({
+        action: "read",
+        expires: "03-01-2500", // Far-future expiration
+      });
+      finalImageUrl = signedUrl;
+
+      functions.logger.info(`Using Firebase Storage URL: ${finalImageUrl}`, {uid});
+    } else {
+      // Should not happen if API call succeeded
+      functions.logger.warn("No base64 image data received from OpenAI to upload.", {uid});
+      throw new HttpsError("internal", "Image generated but could not be stored.");
     }
+  } catch (uploadError) {
+    functions.logger.error("Failed to store generated image to Cloud Storage:", {uid, uploadError});
+    throw new HttpsError("internal", "Failed to store the generated image.");
+  }
 
-    functions.logger.info("Initiating image generation request.", { userId, model, style, customPromptProvided: !!prompt, selectionCount: selections.length });
+  // 7. Save Metadata to Realtime Database
+  try {
+    const generatedImagesRef = db.ref(`/generatedImages/${uid}`).push();
+    await generatedImagesRef.set({
+      style,
+      prompt: prompt || null,
+      profileIds: fetchedPhotoDetails.map((s) => s.profileId),
+      photoIds: fetchedPhotoDetails.map((s) => s.photoId),
+      imageUrl: finalImageUrl,
+      model: modelToUse,
+      createdAt: admin.database.ServerValue.TIMESTAMP,
+    });
+    functions.logger.info("Saved generated image metadata to RTDB", {uid, ref: generatedImagesRef.key});
+  } catch (dbError) {
+    // Non-fatal error for metadata saving
+    functions.logger.error("Failed to save generated image metadata (non-fatal):", {uid, dbError});
+  }
 
-    try {
-        // 3. Fetch Animal Descriptions from Firestore/DB
-        const animalDescriptions = await getAnimalDescriptions(selections);
-
-        // 4. Construct the Prompt for OpenAI
-        const systemPrompt = `Generate a high-quality, creative image. Focus on the specified animals as the main subjects, rendered according to the provided style and scene description. Ensure the animals are recognizable based on their descriptions.`;
-
-        const promptParts: string[] = [systemPrompt];
-
-        // Add style description only if it's meaningful (not just "custom")
-        if (style && style.toLowerCase() !== 'custom') {
-            promptParts.push(`Style: ${style}.`);
-        }
-
-        // Add animal descriptions
-        promptParts.push(`Featuring: ${animalDescriptions}.`);
-
-        // Add user's custom prompt if provided
-        if (prompt && typeof prompt === 'string' && prompt.trim()) {
-            promptParts.push(`Scene/Details: ${prompt.trim()}.`);
-        }
-
-        const finalPrompt = promptParts.join(' ');
-        functions.logger.info("Constructed final prompt for OpenAI:", { userId, finalPrompt });
-
-
-        // 5. Call OpenAI API using the initialized client
-        const response = await openai.images.generate({
-             model: model,
-             prompt: finalPrompt,
-             n: 1,                     // Number of images to generate
-             size: "1024x1024",        // DALL-E 3 / gpt-image-1 supported size
-             quality: "standard",      // "standard" or "hd"
-             response_format: "url",   // Request URL directly
-             user: userId              // Pass Firebase UID for tracking/moderation
-        });
-
-        // Safer access to the URL from the response
-        const imageUrl = response.data?.[0]?.url;
-
-        // Validate the response
-        if (!imageUrl) {
-            // Log the entire response for debugging if data or URL is missing
-            functions.logger.error("No image URL received from OpenAI or data missing in response", { userId, response });
-            throw new HttpsError('internal', 'Failed to generate image: No valid URL returned by the image service.');
-        }
-
-        functions.logger.info("Image generated successfully by OpenAI.", { userId, imageUrl });
-
-        // 6. Persist generated image metadata (Optional but recommended)
-        try {
-            const generatedImagesRef = admin.database().ref(`/generatedImages/${userId}`).push();
-            await generatedImagesRef.set({
-              style,
-              prompt: prompt || null, // Store null if no prompt was provided
-              // Store selections used for this generation
-              profileIds: selections.map((s) => s.profileId),
-              photoIds: selections.map((s) => s.photoId),
-              imageUrl: imageUrl,       // Store the direct OpenAI URL
-              model: model,             // Store the model used
-              finalPrompt: finalPrompt, // Store the exact prompt sent to OpenAI
-              createdAt: admin.database.ServerValue.TIMESTAMP,
-            });
-            functions.logger.info("Saved generated image metadata to Realtime Database.", { userId, refPath: generatedImagesRef.toString() });
-          } catch (dbError) {
-            // Log error but don't fail the entire function
-            functions.logger.error("Failed to save generated image metadata (non-fatal):", { userId, dbError });
-          }
-
-        // 7. Return the result to the client
-        return { imageUrl };
-
-    } catch (error: unknown) { // Use unknown for better type safety in catch block
-        functions.logger.error("Error during image generation process:", { userId, error });
-
-        // Handle known Firebase HttpsError
-        if (error instanceof HttpsError) {
-            throw error;
-        }
-
-        // Handle known OpenAI API errors
-        if (error instanceof OpenAI.APIError) {
-           functions.logger.error("OpenAI API Error details:", {
-               userId,
-               status: error.status,
-               message: error.message,
-               code: error.code,
-               type: error.type,
-           });
-           // Provide a user-friendly message based on common errors
-           let clientMessage = `Image generation failed: ${error.message}`;
-           if (error.code === 'invalid_prompt' || error.code === 'content_policy_violation') {
-               clientMessage = "Image generation failed due to content policy or prompt issue. Please modify your prompt and try again.";
-           } else if (error.status === 429) { // Rate limit error
-                clientMessage = "Image generation service is currently overloaded. Please try again in a few moments.";
-           } else if (error.status === 401) { // Authentication error
-                clientMessage = "Image generation service authentication failed. Please contact support.";
-           }
-           throw new HttpsError('internal', clientMessage);
-        }
-
-        // General fallback for other unexpected errors
-        throw new HttpsError('internal', 'An unexpected error occurred while generating the image.');
-    }
+  // 8. Return Result (Firebase Storage URL)
+  return {imageUrl: finalImageUrl};
 });

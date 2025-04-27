@@ -2,7 +2,7 @@ import React from 'react';
 import { type AnimalProfile } from '../../types/AnimalProfile';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
-import { TrashIcon, PencilIcon } from '@heroicons/react/24/outline'; // Example icons
+import { TrashIcon } from '@heroicons/react/24/outline'; // Removed PencilIcon import
 
 interface AnimalProfileCardProps {
   profile: AnimalProfile;
@@ -28,13 +28,10 @@ export const AnimalProfileCard: React.FC<AnimalProfileCardProps> = ({
     }
   };
 
-  const handleViewDetailsClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card selection when clicking details button
-    onViewDetails(profile.id);
-  };
-
   const handleCardClick = () => {
     onSelectToggle(profile);
+    // Also show details when clicking the card
+    onViewDetails(profile.id);
   };
 
   return (
@@ -44,7 +41,7 @@ export const AnimalProfileCard: React.FC<AnimalProfileCardProps> = ({
       padding="p-3" // Smaller padding for the card
     >
       <div className="flex justify-between items-center">
-        {/* Profile Name - Make clickable for details? Or use dedicated button */}
+        {/* Profile Name */}
         <h3
           className="text-md font-semibold font-nunito truncate text-gray-800 dark:text-gray-100"
           title={profile.name}
@@ -54,13 +51,6 @@ export const AnimalProfileCard: React.FC<AnimalProfileCardProps> = ({
 
         {/* Action Buttons */}
         <div className="flex space-x-1 flex-shrink-0">
-          <Button
-            className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            onClick={handleViewDetailsClick}
-            title="View Details & Photos"
-          >
-            <PencilIcon className="h-4 w-4" />
-          </Button>
           <Button
             className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400"
             onClick={handleDeleteClick}

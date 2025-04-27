@@ -10,12 +10,20 @@ import { type WorkspaceContext } from '../../App';
 // import { ProfilePhotoGallery } from './ProfilePhotoGallery';
 // import { PhotoUploader } from './PhotoUploader';
 
+// Define input type for the delete handler prop (can be defined here or imported)
+interface DeletePhotoInput {
+  profileId: string;
+  photoId: string;
+  storagePath: string;
+}
+
 interface WorkspacePanelProps {
   context: WorkspaceContext;
   onPhotoSelectForGeneration: (profileId: string, photoId: string | null) => void;
+  onDeletePhoto: (input: DeletePhotoInput) => Promise<boolean>; // Add delete handler prop
 }
 
-export const WorkspacePanel: React.FC<WorkspacePanelProps> = ({ context, onPhotoSelectForGeneration }) => {
+export const WorkspacePanel: React.FC<WorkspacePanelProps> = ({ context, onPhotoSelectForGeneration, onDeletePhoto }) => {
 
   const renderWorkspaceContent = () => {
     if (!context) {
@@ -52,6 +60,7 @@ export const WorkspacePanel: React.FC<WorkspacePanelProps> = ({ context, onPhoto
               selectedProfiles={context.selectedProfiles}
               selectedPhotoMap={context.selectedPhotoMap}
               onPhotoSelect={onPhotoSelectForGeneration}
+              onDeletePhoto={onDeletePhoto}
             />
             <ImageGenerationPanel
               selections={validSelections}

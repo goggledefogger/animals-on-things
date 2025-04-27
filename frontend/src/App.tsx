@@ -1,16 +1,16 @@
 import { useState, useCallback } from 'react';
-import { Routes, Route, NavLink } from 'react-router-dom'; // Import routing components and NavLink
+import { Routes, Route, NavLink, Link } from 'react-router-dom'; // Import routing components and NavLink
 import { useAuth } from './contexts/AuthContext';
+import { useAnimalProfiles } from './hooks/useAnimalProfiles'; // Import the hook for animal profiles
 // import { AnimalProfileList } from './components/features/AnimalProfileList'; // Old component
 // import { SelectedPhotosPanel } from './components/features/SelectedPhotosPanel'; // Old component
 // import { ImageGenerationPanel } from './components/features/ImageGenerationPanel'; // Old component
 // import { Card } from './components/common/Card'; // Likely used within new components
 import { type AnimalProfile } from './types/AnimalProfile'; // Import AnimalProfile type
-
-// Import the new layout components
-import { AnimalProfilesPanel } from './components/features/AnimalProfilesPanel';
+import AnimalProfilesPanel from './components/features/AnimalProfilesPanel';
 import { WorkspacePanel } from './components/features/WorkspacePanel';
-import { ImageHistoryGallery } from './components/features/ImageHistoryGallery'; // Import the new component
+import { ImageGallery } from './components/features/ImageGallery'; // Import the renamed component
+import { usePhotoDeletion } from './hooks/usePhotoDeletion'; // Import the deletion hook
 
 // Define map type for selected photos
 export interface SelectedPhotoMap {
@@ -20,8 +20,14 @@ export interface SelectedPhotoMap {
 // Define and export the type for the workspace context (can be expanded later)
 export type WorkspaceContext =
   | null
-  | { type: 'viewing_details', profileId: string }
   | { type: 'generation_setup', selectedProfiles: AnimalProfile[], selectedPhotoMap: SelectedPhotoMap }; // Include selected profiles and selectedPhotoMap
+
+// Define input type for the delete handler (matches hook input)
+interface DeletePhotoInput {
+  profileId: string;
+  photoId: string;
+  storagePath: string;
+}
 
 function App() {
   const { currentUser, loading } = useAuth();
@@ -30,14 +36,11 @@ function App() {
   const [selectedProfiles, setSelectedProfiles] = useState<AnimalProfile[]>([]);
   // State to map selected profile IDs to their chosen photo ID for generation
   const [selectedPhotoMap, setSelectedPhotoMap] = useState<SelectedPhotoMap>({});
+  // Access animal profiles functionality
+  const { profiles, loading: profilesLoading, error: profilesError, deleteProfile } = useAnimalProfiles();
 
-  // Handler for when user clicks "View Details" on a profile card
-  const handleViewProfileDetails = useCallback((profileId: string) => {
-    setWorkspaceContext({ type: 'viewing_details', profileId });
-    // Deselect profiles when viewing details
-    setSelectedProfiles([]);
-    setSelectedPhotoMap({}); // Clear photo selections too
-  }, []);
+  // Initialize the deletion hook
+  const { deletePhoto, deletionError } = usePhotoDeletion();
 
   // Handler for toggling profile selection - lives in App now
   const handleProfileSelectToggle = useCallback((profile: AnimalProfile) => {
@@ -84,6 +87,60 @@ function App() {
     }
   }, [selectedProfiles, selectedPhotoMap]); // Depend on selectedProfiles and map
 
+  // Implement the photo deletion handler
+  const handleDeletePhoto = useCallback(async (input: DeletePhotoInput): Promise<boolean> => {
+    console.log('Requesting photo delete:', input);
+    const success = await deletePhoto(input);
+    if (success) {
+        console.log('Photo deleted successfully.');
+        // If the deleted photo was selected for generation, clear that selection
+        if (selectedPhotoMap[input.profileId] === input.photoId) {
+            // Trigger a state update to clear the selection map for this profile
+            handlePhotoSelectForGeneration(input.profileId, null);
+        }
+        // Note: The MiniPhotoGallery will refetch via useAnimalPhotos hook
+        // *if* that hook is enhanced to listen for RTDB changes or manually refetched.
+        // For now, the photo might visually linger until a page refresh or profile re-selection.
+        // TODO: Enhance useAnimalPhotos to update automatically after deletion.
+    } else {
+        console.error('Photo deletion failed:', deletionError);
+        // Show error to user? (Deletion hook manages error state, maybe display it globally?)
+        alert(`Failed to delete photo: ${deletionError}`); // Simple alert for now
+    }
+    return success;
+  }, [deletePhoto, selectedPhotoMap, handlePhotoSelectForGeneration, deletionError]); // Add dependencies
+
+  // Profile detail view handler
+  const handleViewProfileDetails = useCallback((profileId: string) => {
+    const profile = profiles.find(p => p.id === profileId);
+    if (profile) {
+      setWorkspaceContext({
+        type: 'generation_setup',
+        selectedProfiles: [profile],
+        selectedPhotoMap: { ...selectedPhotoMap }
+      });
+    }
+  }, [profiles, selectedPhotoMap]);
+
+  // Handler for profile deletion
+  const handleDeleteProfile = useCallback((profileId: string) => {
+    // Remove from selected profiles if needed
+    const isSelected = selectedProfiles.some(p => p.id === profileId);
+    if (isSelected) {
+      setSelectedProfiles(prev => prev.filter(p => p.id !== profileId));
+
+      // Also remove from photo map
+      setSelectedPhotoMap(prev => {
+        const newMap = { ...prev };
+        delete newMap[profileId];
+        return newMap;
+      });
+    }
+
+    // Call the delete function from the hook
+    deleteProfile(profileId);
+  }, [selectedProfiles, deleteProfile]);
+
   // Helper function for NavLink className
   const getNavLinkClass = ({ isActive }: { isActive: boolean }): string => {
     const baseClasses = "px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150";
@@ -98,17 +155,17 @@ function App() {
       {/* Central container with max width */}
       <div className="max-w-7xl mx-auto">
         <header className="mb-8 sm:mb-10 flex flex-col sm:flex-row justify-between items-center">
-          <h1 className="text-center sm:text-left text-3xl sm:text-4xl md:text-5xl font-bold font-nunito text-sky-700 dark:text-sky-300">
+          <Link to="/" className="block text-center text-3xl sm:text-4xl font-bold font-nunito my-4 sm:my-6 text-gray-800 dark:text-gray-100 no-underline hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
             Animals On Things
-          </h1>
+          </Link>
           {/* Updated Navigation using NavLink */}
           {currentUser && (
             <nav className="mt-4 sm:mt-0 flex space-x-2">
               <NavLink to="/" className={getNavLinkClass} end> {/* Use 'end' prop for exact match on root */}
                 Generator
               </NavLink>
-              <NavLink to="/history" className={getNavLinkClass}>
-                History
+              <NavLink to="/gallery" className={getNavLinkClass}> {/* Updated path */}
+                Gallery {/* Updated text */}
               </NavLink>
             </nav>
           )}
@@ -129,20 +186,25 @@ function App() {
               <div className="flex flex-col xl:flex-row gap-6 xl:gap-8">
                 <div className="w-full xl:w-1/3 flex-shrink-0">
                   <AnimalProfilesPanel
+                    profiles={profiles}
                     selectedProfiles={selectedProfiles}
                     onSelectProfileToggle={handleProfileSelectToggle}
-                    onViewProfileDetails={handleViewProfileDetails}
+                    onDelete={handleDeleteProfile}
+                    handleViewDetails={handleViewProfileDetails}
+                    loading={profilesLoading}
+                    error={profilesError || undefined}
                   />
                 </div>
                 <div className="w-full xl:w-2/3">
                   <WorkspacePanel
                     context={workspaceContext}
                     onPhotoSelectForGeneration={handlePhotoSelectForGeneration}
+                    onDeletePhoto={handleDeletePhoto}
                   />
                 </div>
               </div>
             } />
-            <Route path="/history" element={<ImageHistoryGallery />} /> { /* History Route */}
+            <Route path="/gallery" element={<ImageGallery />} /> { /* Updated path and component */}
           </Routes>
         )}
 
