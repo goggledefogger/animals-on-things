@@ -2,6 +2,7 @@ import * as functions from "firebase-functions/v1";
 import {HttpsError} from "firebase-functions/v1/https";
 import * as admin from "firebase-admin";
 import OpenAI, { toFile } from "openai"; // Import OpenAI and toFile helper
+import { Configuration, OpenAIApi } from 'openai';
 
 // Admin SDK is initialized in index.ts
 
@@ -48,6 +49,43 @@ type FetchedPhotoDetail = {
   imageBuffer: Buffer;
 };
 
+// Hypothetical function to fetch data from Firestore
+async function getAnimalDescriptions(selections: { profileId: string, photoId: string }[]): Promise<string> {
+    // TODO: Implement actual Firestore query logic here
+    // Based on profileId and photoId, fetch relevant animal names, breeds, key features, or descriptions.
+    // Example: Fetch profile names and maybe a primary photo description?
+    const descriptions: string[] = [];
+    try {
+        for (const selection of selections) {
+            // Replace with actual data fetching
+            const profileSnap = await admin.firestore().collection('profiles').doc(selection.profileId).get();
+            // Assuming profile has a 'name' and maybe you fetch a photo description?
+            const profileData = profileSnap.data();
+            if (profileData) {
+                // Construct a meaningful description per selection
+                descriptions.push(`a ${profileData.name || 'pet'}`); // Simple example using profile name
+            } else {
+                functions.logger.warn(`Profile not found for ID: ${selection.profileId}`);
+                descriptions.push('an animal'); // Fallback
+            }
+        }
+    } catch (error) {
+        functions.logger.error("Error fetching animal descriptions from Firestore:", error);
+        // Return a generic fallback if Firestore fails
+        return `the selected animals (${selections.length})`;
+    }
+
+
+    if (descriptions.length === 0) {
+        return 'the selected animals'; // Fallback if no selections somehow (should be caught by validation)
+    } else if (descriptions.length === 1) {
+        return descriptions[0];
+    } else {
+        // Join multiple descriptions gracefully (e.g., "a cat, a dog, and a bird")
+        return descriptions.slice(0, -1).join(', ') + ' and ' + descriptions.slice(-1);
+    }
+}
+
 /**
  * Callable function to generate a new COMBINED image based on multiple
  * selected photos, a style, and an optional custom prompt.
@@ -68,7 +106,7 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
 
   // Validate model (if provided)
   // Currently only allowing the default. Add gpt-4o-mini here when API is ready.
-  const allowedModels = ["gpt-image-1"]; 
+  const allowedModels = ["gpt-image-1"];
   if (model && !allowedModels.includes(model)) {
     throw new HttpsError(
       "invalid-argument",
@@ -210,7 +248,7 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
       // Assuming input photos are likely PNG or JPEG, let's try PNG for now
       // We might need to determine the actual content type later if this fails
       return await toFile(detail.imageBuffer, `input_${index}.png`, {
-        type: "image/png", 
+        type: "image/png",
       });
     });
     const inputImages = await Promise.all(inputImagesPromises);
@@ -325,4 +363,115 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
 
   // 8. Return Result
   return {imageUrl: finalImageUrl};
+});
+
+export const generateImageHttp = functions.https.onCall(async (data, context: functions.https.CallableContext) => {
+    // 1. Authentication/Authorization
+    // Enforce authentication if needed - recommended!
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be logged in to generate images.');
+    }
+    const userId = context.auth.uid; // Get user ID if needed
+
+    // 2. Input Validation
+    const { selections, style, prompt } = data;
+    if (!Array.isArray(selections) || selections.length === 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'Selections array is required and must not be empty.');
+    }
+    if (typeof style !== 'string' || !style) {
+         throw new functions.https.HttpsError('invalid-argument', 'Style is required.');
+     }
+    // Prompt is optional, can be null or empty string
+
+    // Check selections structure (optional but good practice)
+    for (const sel of selections) {
+        if (typeof sel.profileId !== 'string' || !sel.profileId || typeof sel.photoId !== 'string' || !sel.photoId) {
+            throw new functions.https.HttpsError('invalid-argument', 'Each selection must have a valid profileId and photoId.');
+        }
+    }
+
+
+    try {
+        // 3. Fetch Animal Descriptions from Firestore
+        const animalDescriptions = await getAnimalDescriptions(selections);
+
+        // 4. Construct the Prompt for OpenAI
+        const systemPrompt = `Generate a high-quality, creative image. Focus on the specified animals as the main subjects, rendered according to the provided style and scene description. Ensure the animals are recognizable based on their descriptions.`; // Added recognizability
+
+        const promptParts: string[] = [systemPrompt];
+
+        // Add style description only if it's a meaningful predefined one (not just "custom")
+        if (style && style.toLowerCase() !== 'custom') {
+            promptParts.push(`Style: ${style}.`);
+        }
+
+        // Add animal descriptions
+        promptParts.push(`Featuring: ${animalDescriptions}.`);
+
+        // Add user's custom prompt if provided
+        if (prompt && typeof prompt === 'string' && prompt.trim()) {
+            promptParts.push(`Scene/Details: ${prompt.trim()}.`);
+        }
+
+        const finalPrompt = promptParts.join(' ');
+
+        functions.logger.info("Generating image with prompt:", { userId, finalPrompt }); // Log userId too
+
+
+        // 5. Call OpenAI API (Use v4 SDK Style)
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            functions.logger.error("OPENAI_API_KEY environment variable not set.", { userId });
+            throw new functions.https.HttpsError('internal', 'Image generation service is not configured.');
+        }
+
+        // Use new OpenAI v4 client
+        const openai = new OpenAI({ apiKey });
+
+        const response = await openai.images.generate({
+             model: "dall-e-3",
+             prompt: finalPrompt,
+             n: 1,
+             size: "1024x1024",
+             quality: "standard",
+             response_format: "url",
+             // style: "vivid", // Optional: vivid or natural
+             // user: userId // Optional: Pass user ID to OpenAI for monitoring
+        });
+
+        const imageUrl = response.data[0]?.url;
+
+        if (!imageUrl) {
+            functions.logger.error("No image URL received from OpenAI", { userId, responseData: response.data });
+            throw new functions.https.HttpsError('internal', 'Failed to generate image, no URL returned.');
+        }
+
+        // 6. TODO: Persist generated image info? (keep as is)
+        // ... persistence logic example ...
+        // await admin.firestore().collection('generatedImages').add({ ... });
+
+        // 7. Return the result
+        return { imageUrl };
+
+    } catch (error: any) {
+        functions.logger.error("Error generating image:", { userId, errorData: error }); // Log userId with error
+        if (error instanceof functions.https.HttpsError) {
+            throw error; // Re-throw known HttpsError
+        }
+        // Check for OpenAI specific errors (v4 style)
+        if (error instanceof OpenAI.APIError) { // Check specific error type
+           functions.logger.error("OpenAI API Error:", {
+               userId,
+               status: error.status, // e.g. 400
+               message: error.message,
+               code: error.code, // e.g. invalid_prompt
+               type: error.type, // e.g. invalid_request_error
+           });
+           throw new functions.https.HttpsError('internal', `Image Generation Error: ${error.message}`);
+        }
+        // General fallback
+        else {
+            throw new functions.https.HttpsError('internal', 'An unexpected error occurred during image generation.');
+        }
+    }
 });
