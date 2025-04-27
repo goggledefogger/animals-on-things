@@ -38,11 +38,13 @@ export const WorkspacePanel: React.FC<WorkspacePanelProps> = ({ context, onPhoto
 
     switch (context.type) {
       case 'viewing_details':
-        // Comment out the usage of the non-existent component
+        // Display details using the profile object from the context
         return (
           <Card>
-            <p>Details for Profile ID: {context.profileId} (Details component placeholder)</p>
-            {/* <AnimalProfileDetails profileId={context.profileId} /> */}
+            <h3 className="text-lg font-semibold mb-2">Profile Details</h3>
+            <p>Viewing details for: {context.profile.name} (ID: {context.profile.id})</p>
+            {/* Placeholder for a real details component */}
+            {/* <AnimalProfileDetails profile={context.profile} /> */}
           </Card>
         );
 

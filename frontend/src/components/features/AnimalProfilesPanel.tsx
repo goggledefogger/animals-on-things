@@ -1,8 +1,9 @@
-import React from 'react';
+// import React from 'react'; // Remove unused import
 import { Card } from '../common/Card';
 import { AnimalProfileCard } from './AnimalProfileCard';
 import { type AnimalProfile } from '../../types/AnimalProfile';
 import { AddAnimalProfileForm } from './AddAnimalProfileForm';
+// import { useState } from 'react'; // Remove unused import
 
 interface AnimalProfilesPanelProps {
   profiles: AnimalProfile[];

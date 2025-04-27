@@ -9,7 +9,7 @@ import { useAnimalProfiles } from './hooks/useAnimalProfiles'; // Import the hoo
 import { type AnimalProfile } from './types/AnimalProfile'; // Import AnimalProfile type
 import AnimalProfilesPanel from './components/features/AnimalProfilesPanel';
 import { WorkspacePanel } from './components/features/WorkspacePanel';
-import { ImageGallery } from './components/features/ImageGallery'; // Import the renamed component
+import { ImageHistoryGallery } from './components/features/ImageHistoryGallery'; // Import the correct history component
 import { usePhotoDeletion } from './hooks/usePhotoDeletion'; // Import the deletion hook
 
 // Define map type for selected photos
@@ -20,7 +20,8 @@ export interface SelectedPhotoMap {
 // Define and export the type for the workspace context (can be expanded later)
 export type WorkspaceContext =
   | null
-  | { type: 'generation_setup', selectedProfiles: AnimalProfile[], selectedPhotoMap: SelectedPhotoMap }; // Include selected profiles and selectedPhotoMap
+  | { type: 'generation_setup', selectedProfiles: AnimalProfile[], selectedPhotoMap: SelectedPhotoMap }
+  | { type: 'viewing_details', profile: AnimalProfile }; // Add viewing_details case
 
 // Define input type for the delete handler (matches hook input)
 interface DeletePhotoInput {
@@ -115,12 +116,11 @@ function App() {
     const profile = profiles.find(p => p.id === profileId);
     if (profile) {
       setWorkspaceContext({
-        type: 'generation_setup',
-        selectedProfiles: [profile],
-        selectedPhotoMap: { ...selectedPhotoMap }
+        type: 'viewing_details',
+        profile: profile,
       });
     }
-  }, [profiles, selectedPhotoMap]);
+  }, [profiles]);
 
   // Handler for profile deletion
   const handleDeleteProfile = useCallback((profileId: string) => {
@@ -204,7 +204,7 @@ function App() {
                 </div>
               </div>
             } />
-            <Route path="/gallery" element={<ImageGallery />} /> { /* Updated path and component */}
+            <Route path="/gallery" element={<ImageHistoryGallery />} /> { /* Use ImageHistoryGallery */}
           </Routes>
         )}
 
