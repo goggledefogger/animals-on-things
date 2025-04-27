@@ -72,7 +72,7 @@ export const MiniPhotoGallery: React.FC<MiniPhotoGalleryProps> = ({
             <PhotoThumbnail
               storagePath={photo.storagePath}
               altText={`Photo for ${profileName}`}
-              className={`w-full aspect-square object-cover rounded cursor-pointer border-2 ${isDeletingThis ? 'opacity-50' : ''} ${selectedPhotoId === photo.id ? 'border-sky-500 ring-1 ring-sky-300' : 'border-transparent hover:border-gray-400'}`}
+              className={`w-full aspect-square object-cover rounded cursor-pointer border-2 ${isDeletingThis ? 'opacity-50' : ''} ${selectedPhotoId === photo.id ? 'border-sky-500 ring-4 ring-sky-300' : 'border-transparent hover:border-gray-400'}`}
               onClick={() => !isDeletingThis && onPhotoSelect(profileId, photo.id)}
             />
             <Button

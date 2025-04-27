@@ -72,7 +72,7 @@ export const PhotoThumbnail: React.FC<PhotoThumbnailProps> = ({
   const baseClasses =
     'relative group aspect-square w-full rounded-md object-cover border-2 overflow-hidden';
   const selectedClasses = isSelected
-    ? 'border-green-500 ring-2 ring-green-500 ring-offset-2 dark:ring-offset-gray-800'
+    ? 'border-green-500 ring-4 ring-green-500 ring-offset-2 dark:ring-offset-gray-800'
     : 'border-transparent hover:border-gray-400 dark:hover:border-gray-500';
   const placeholderClasses =
     'flex items-center justify-center bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500';
