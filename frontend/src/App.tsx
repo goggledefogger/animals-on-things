@@ -155,7 +155,7 @@ function App() {
       {/* Central container with max width */}
       <div className="max-w-7xl mx-auto">
         <header className="mb-8 sm:mb-10 flex flex-col sm:flex-row justify-between items-center">
-          <Link to="/" className="block text-center text-3xl sm:text-4xl font-bold font-nunito my-4 sm:my-6 text-gray-800 dark:text-gray-100 no-underline hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
+          <Link to="/" className="block text-center text-4xl sm:text-5xl font-bold font-nunito my-4 sm:my-6 text-sky-700 dark:text-sky-300 no-underline hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
             Animals On Things
           </Link>
           {/* Updated Navigation using NavLink */}
