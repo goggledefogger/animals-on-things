@@ -16,6 +16,7 @@ interface GenerateImageRequestData {
   selections: GenerationSelection[];
   style: string;
   prompt?: string;
+  model?: string; // Added: Optional model selection
 }
 
 // Structure for photo metadata fetched from RTDB
@@ -63,7 +64,17 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
   const uid = context.auth.uid;
 
   // 2. Input Validation
-  const {selections, style, prompt} = data;
+  const {selections, style, prompt, model = "gpt-image-1"} = data;
+
+  // Validate model (if provided)
+  // Currently only allowing the default. Add gpt-4o-mini here when API is ready.
+  const allowedModels = ["gpt-image-1"]; 
+  if (model && !allowedModels.includes(model)) {
+    throw new HttpsError(
+      "invalid-argument",
+      `Invalid model specified. Allowed models are: ${allowedModels.join(", ")}.`
+    );
+  }
 
   // eslint-disable-next-line max-len
   if (!style || !selections || !Array.isArray(selections) || selections.length === 0) {
@@ -123,6 +134,10 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
       `Profile ${selection.profileId.substring(0, 4)}`;
 
     const photoData = photoSnapshot.val() as AnimalPhotoData;
+    functions.logger.info(
+      `Fetched photo data for profile ${selection.profileId}, ` +
+      `photo ${selection.photoId}:`, photoData
+    );
     if (!photoData.storagePath) {
       // Split long error message
       throw new HttpsError("internal",
@@ -133,6 +148,10 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
     // Download image from storage
     let downloadedImageBuffer: Buffer;
     try {
+      functions.logger.info(
+        `Attempting to download image for photo ${selection.photoId} `+
+        `from storage path: ${photoData.storagePath}`
+      );
       const file = storageBucket.file(photoData.storagePath);
       const [buffer] = await file.download();
       downloadedImageBuffer = buffer;
@@ -199,7 +218,7 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
     functions.logger.info("Calling OpenAI GPT Image Edit API with image references...");
 
     const response = await openai.images.edit({ // Changed from generate to edit
-      model: "gpt-image-1", // Use the latest image generation model
+      model: model, // Use the selected model
       image: inputImages, // Pass the downloaded image buffers
       prompt: combinedPrompt,
       n: 1, // Generate one image
@@ -294,9 +313,10 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
       profileIds: fetchedPhotoDetails.map((s) => s.profileId),
       photoIds: fetchedPhotoDetails.map((s) => s.photoId),
       imageUrl: finalImageUrl,
+      model: model, // Added model used for generation
       createdAt: admin.database.ServerValue.TIMESTAMP,
     });
-    functions.logger.info("Saved generated image metadata to RTDB");
+    functions.logger.info("Saved generated image metadata to RTDB (including model)");
   } catch (dbError) {
     // Non-fatal error - log but don't fail the function
     // eslint-disable-next-line max-len
