@@ -3,10 +3,51 @@ rules_version = '2';
 // Default deny all access
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow authenticated users to read/write/delete their own files under the /profiles path
-    match /profiles/{userId}/{allPaths=**} {
+    // Match the user-specific directory structure
+    match /users/{userId}/{allPaths=**} {
+      // Default allow read/write for the user's entire directory
+      // This ensures basic access and allows generating download URLs
       allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // More specific rules for profile photos within the user's directory
+      match /profiles/{profileId}/{fileName} {
+        // Allow read should be inherited from parent, but let's be explicit
+        allow read: if request.auth != null && request.auth.uid == userId;
+        // Allow write only for images under 5MB
+        allow write: if request.auth != null && request.auth.uid == userId &&
+                      request.resource.size < 5 * 1024 * 1024 && // Max 5MB
+                      request.resource.contentType.matches('image/.*'); // Only images
+      }
+
+      // Add other nested rules within /users/{userId} if needed
     }
-    // Add other rules if needed (e.g., public read for generated images?)
+    // Add other top-level rules here if needed
+
+    // Match the specific path for user profile photos
+    match /users/{userId}/profiles/{profileId}/{fileName} {
+      // Allow read access to the file if the user is authenticated and matches the userId in the path.
+      // This is needed for getDownloadURL by the owner.
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      // Allow write (create, update, delete) access only if:
+      // 1. The user is authenticated and matches the userId in the path.
+      // 2. The uploaded file (if creating/updating) is an image.
+      // 3. The uploaded file (if creating/updating) is less than 5MB.
+      // Note: 'write' covers create, update, and delete.
+      // The resource checks apply only to create/update operations.
+      allow write: if request.auth != null && request.auth.uid == userId &&
+                    (request.resource == null || // Allow delete (resource is null)
+                     (request.resource.size < 5 * 1024 * 1024 && // Max 5MB check for create/update
+                      request.resource.contentType.matches('image/.*'))); // Image type check for create/update
+    }
+
+    // **NEW RULE:** Allow DELETION only for the LEGACY path structure by the owner
+    match /profiles/{userId}/{profileId}/{fileName} {
+      // Allow delete (which is part of write, when resource is null)
+      // We ONLY need delete permission here, not read or create/update.
+      allow write: if request.resource == null && // Check if it's a delete operation
+                      request.auth != null && request.auth.uid == userId; // Check ownership
+      // No explicit read needed, as we want to phase out reading from here.
+    }
   }
-} 
+}
