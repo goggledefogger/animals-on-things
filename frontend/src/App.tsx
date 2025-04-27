@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { Routes, Route, NavLink } from 'react-router-dom'; // Import routing components and NavLink
 import { useAuth } from './contexts/AuthContext';
 // import { AnimalProfileList } from './components/features/AnimalProfileList'; // Old component
 // import { SelectedPhotosPanel } from './components/features/SelectedPhotosPanel'; // Old component
@@ -9,6 +10,7 @@ import { type AnimalProfile } from './types/AnimalProfile'; // Import AnimalProf
 // Import the new layout components
 import { AnimalProfilesPanel } from './components/features/AnimalProfilesPanel';
 import { WorkspacePanel } from './components/features/WorkspacePanel';
+import { ImageHistoryGallery } from './components/features/ImageHistoryGallery'; // Import the new component
 
 // Define map type for selected photos
 export interface SelectedPhotoMap {
@@ -82,14 +84,35 @@ function App() {
     }
   }, [selectedProfiles, selectedPhotoMap]); // Depend on selectedProfiles and map
 
+  // Helper function for NavLink className
+  const getNavLinkClass = ({ isActive }: { isActive: boolean }): string => {
+    const baseClasses = "px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150";
+    const activeClasses = "bg-sky-100 text-sky-700 dark:bg-sky-800 dark:text-sky-100";
+    const inactiveClasses = "text-gray-600 hover:bg-gray-200 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white";
+    return `${baseClasses} ${isActive ? activeClasses : inactiveClasses}`;
+  };
+
   return (
     // Using the theme colors defined in the visual language
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-4 sm:px-6 py-8 sm:py-10">
       {/* Central container with max width */}
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-center text-3xl sm:text-4xl md:text-5xl font-bold font-nunito text-sky-700 dark:text-sky-300 mb-8 sm:mb-10">
-          Animals On Things
-        </h1>
+        <header className="mb-8 sm:mb-10 flex flex-col sm:flex-row justify-between items-center">
+          <h1 className="text-center sm:text-left text-3xl sm:text-4xl md:text-5xl font-bold font-nunito text-sky-700 dark:text-sky-300">
+            Animals On Things
+          </h1>
+          {/* Updated Navigation using NavLink */}
+          {currentUser && (
+            <nav className="mt-4 sm:mt-0 flex space-x-2">
+              <NavLink to="/" className={getNavLinkClass} end> {/* Use 'end' prop for exact match on root */}
+                Generator
+              </NavLink>
+              <NavLink to="/history" className={getNavLinkClass}>
+                History
+              </NavLink>
+            </nav>
+          )}
+        </header>
 
         {/* Loading state */}
         {loading && (
@@ -100,29 +123,27 @@ function App() {
 
         {/* Main content area when logged in */}
         {!loading && currentUser && (
-          // Flex container for the two columns
-          // Stacks vertically on screens smaller than 'xl' (Tailwind breakpoint)
-          <div className="flex flex-col xl:flex-row gap-6 xl:gap-8">
-
-            {/* Left Column: Animal Profiles Panel */}
-            {/* Takes 1/3 width on xl screens, full width below */}
-            <div className="w-full xl:w-1/3 flex-shrink-0">
-              <AnimalProfilesPanel
-                selectedProfiles={selectedProfiles}
-                onSelectProfileToggle={handleProfileSelectToggle}
-                onViewProfileDetails={handleViewProfileDetails}
-              />
-            </div>
-
-            {/* Right Column: Workspace Panel */}
-            {/* Takes 2/3 width on xl screens, full width below */}
-            <div className="w-full xl:w-2/3">
-              <WorkspacePanel
-                context={workspaceContext}
-                onPhotoSelectForGeneration={handlePhotoSelectForGeneration}
-              />
-            </div>
-          </div>
+          <Routes> { /* Define Routes */}
+            <Route path="/" element={
+              // Main Generator View Layout
+              <div className="flex flex-col xl:flex-row gap-6 xl:gap-8">
+                <div className="w-full xl:w-1/3 flex-shrink-0">
+                  <AnimalProfilesPanel
+                    selectedProfiles={selectedProfiles}
+                    onSelectProfileToggle={handleProfileSelectToggle}
+                    onViewProfileDetails={handleViewProfileDetails}
+                  />
+                </div>
+                <div className="w-full xl:w-2/3">
+                  <WorkspacePanel
+                    context={workspaceContext}
+                    onPhotoSelectForGeneration={handlePhotoSelectForGeneration}
+                  />
+                </div>
+              </div>
+            } />
+            <Route path="/history" element={<ImageHistoryGallery />} /> { /* History Route */}
+          </Routes>
         )}
 
         {/* Message when not logged in */}

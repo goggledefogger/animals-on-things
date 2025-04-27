@@ -14,6 +14,7 @@ admin.initializeApp();
 
 // Import and re-export functions from their files
 export {generateImage} from "./generateImage";
+export * from "./getImageHistory";
 
 // Example placeholder (can be removed)
 // export const helloWorld = onRequest((request, response) => {

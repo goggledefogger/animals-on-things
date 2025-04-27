@@ -11,10 +11,10 @@ interface GenerationSelection {
 }
 
 interface ImageGenerationPanelProps {
-  selections: GenerationSelection[]; // Changed from profileId/selectedPhotoId
+  selections: GenerationSelection[]; // Array of selected profile/photo pairs
 }
 
-// TODO: Define styles properly, maybe fetch from config?
+// TODO: Define styles in a configuration file or fetch dynamically?
 const PREDEFINED_STYLES = [
   'Comic Book', 'Watercolor', 'Pixel Art', 'Jungle', 'Space', 'Cozy'
 ];
@@ -27,21 +27,14 @@ export const ImageGenerationPanel: React.FC<ImageGenerationPanelProps> = ({ sele
   const canGenerate = selections.length > 0;
 
   const handleGenerateClick = () => {
-    // Use the selected style if available, otherwise default to "custom" if needed.
-    // The backend needs *some* style, even if we primarily use the prompt.
+    // Backend expects a style, use "custom" as placeholder if only prompt is provided
     const styleToSend = selectedStyle || "custom";
-    const promptToSend = customPrompt.trim() || null; // Send null if empty
+    const promptToSend = customPrompt.trim() || null;
 
-    // Check if we have selections and *either* a selected style OR a custom prompt.
-    if (selections.length > 0 && (selectedStyle || promptToSend)) {
-      generateImage({
-          selections,
-          style: styleToSend, // Send the selected style or "custom"
-          prompt: promptToSend // Send the custom prompt if it exists
-      });
+    if (canGenerate && (selectedStyle || promptToSend)) {
+      generateImage({ selections, style: styleToSend, prompt: promptToSend });
     } else {
-      // Handle the case where generation shouldn't be triggered (e.g., log or show message)
-      console.warn("Generation not triggered: requires selections and either a style or prompt.");
+      console.warn("Generation trigger conditions not met (requires selections and style/prompt).");
     }
   };
 
@@ -53,7 +46,7 @@ export const ImageGenerationPanel: React.FC<ImageGenerationPanelProps> = ({ sele
       <fieldset disabled={isGenerating} className="space-y-4">
         {/* Predefined Style Selector (using buttons for now) */}
         <div className="mb-4">
-          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Choose a style (optional if using custom prompt):</p>
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Choose a style (optional):</p>
           <div className="flex flex-wrap gap-2">
             {PREDEFINED_STYLES.map(style => (
               <Button
@@ -72,14 +65,12 @@ export const ImageGenerationPanel: React.FC<ImageGenerationPanelProps> = ({ sele
 
         {/* Custom Prompt Input */}
         <div className="mb-4">
-            <label htmlFor="custom-prompt" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Custom Prompt (optional if using style):</label>
+            <label htmlFor="custom-prompt" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Custom Prompt (optional):</label>
             <Textarea
               id="custom-prompt"
-              placeholder="Or describe your own style/scene..."
+              placeholder="Describe a scene or add details..."
               value={customPrompt}
-              onChange={(e) => {
-                setCustomPrompt(e.target.value);
-              }}
+              onChange={(e) => setCustomPrompt(e.target.value)}
               rows={3}
               aria-label="Custom generation prompt"
             />
@@ -93,7 +84,7 @@ export const ImageGenerationPanel: React.FC<ImageGenerationPanelProps> = ({ sele
           size="lg"
           onClick={handleGenerateClick}
           disabled={isGenerating || !canGenerate || (!selectedStyle && !customPrompt.trim())}
-          title={!canGenerate ? "Select a photo first" : (!selectedStyle && !customPrompt.trim() ? "Choose a style or enter a prompt" : undefined)}
+          title={!canGenerate ? "Select at least one photo first" : (!selectedStyle && !customPrompt.trim() ? "Choose a style or enter a prompt" : undefined)}
         >
           {isGenerating ? 'Generating...' : 'Generate Image'}
         </Button>
@@ -111,11 +102,11 @@ export const ImageGenerationPanel: React.FC<ImageGenerationPanelProps> = ({ sele
             <p className="text-gray-500 dark:text-gray-400 animate-pulse">Generating image...</p>
           ) : generatedImageUrl ? (
             <img src={generatedImageUrl} alt="Generated image" className="max-w-full max-h-80 mx-auto rounded shadow-md" />
-          ) : null /* Should not happen if outer condition is met */}
+          ) : null /* Display nothing if not generating and no URL (e.g., initial state) */}
         </div>
       )}
 
-      {/* TODO: Add Download Button (only if generatedImageUrl exists) */}
+      {/* TODO: Implement download functionality for generated images */}
 
     </Card>
   );

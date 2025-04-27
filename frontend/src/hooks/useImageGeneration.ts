@@ -11,8 +11,7 @@ interface GenerateImageInput {
 
 // Define the expected output structure from the Firebase Function
 interface GenerateImageOutput {
-  imageUrl?: string;
-  error?: string;
+  imageUrl: string; // Expect URL on success
 }
 
 interface UseImageGenerationReturn {
@@ -30,15 +29,15 @@ export function useImageGeneration(): UseImageGenerationReturn {
 
   const generateImage = useCallback(async (input: GenerateImageInput) => {
     if (!currentUser) {
-      setGenerationError("User not authenticated.");
+      setGenerationError("Authentication required to generate images."); // Slightly clearer message
       return;
     }
     if (input.selections.length === 0) {
-        setGenerationError("No photos selected for generation.");
+        setGenerationError("At least one photo must be selected.");
         return;
     }
     if (!input.style && !input.prompt) {
-        setGenerationError("Style or prompt is required.");
+        setGenerationError("A style or a custom prompt is required.");
         return;
     }
 
@@ -46,7 +45,7 @@ export function useImageGeneration(): UseImageGenerationReturn {
     setGenerationError(null);
     setGeneratedImageUrl(null);
 
-    console.log('Calling generateImage function with input:', input);
+    console.log('Calling Firebase Function generateImage with input:', input);
 
     try {
       const functions = getFunctions();
@@ -54,23 +53,25 @@ export function useImageGeneration(): UseImageGenerationReturn {
       const generateImageFunction = httpsCallable<GenerateImageInput, GenerateImageOutput>(functions, 'generateImage');
 
       const result = await generateImageFunction(input);
-      const data = result.data;
+      // On success, result.data should contain { imageUrl: string }
+      const imageUrl = result.data.imageUrl;
 
-      console.log('Function result:', data);
+      console.log('Firebase Function result:', result.data);
 
-      if (data.error) {
-        throw new Error(data.error);
-      }
-      if (data.imageUrl) {
-        setGeneratedImageUrl(data.imageUrl);
+      if (imageUrl) {
+        setGeneratedImageUrl(imageUrl);
       } else {
-        throw new Error('Function did not return an image URL or a specific error.');
+        // This case might indicate an unexpected success response format from the backend
+        console.error('Function returned success but without an imageUrl:', result.data);
+        throw new Error('Image generation succeeded but the result was invalid.');
       }
     } catch (err: unknown) {
-      console.error("Image generation Firebase Function call failed:", err);
-      let message = 'An unknown error occurred during generation.';
+      console.error("Firebase Function call failed:", err);
+      let message = 'An unexpected error occurred during image generation.';
+      // Extract message from known error types
       if (err instanceof FunctionsError) {
-          message = `Function error: ${err.code} - ${err.message}`;
+          // Use the message directly from the HttpsError thrown by the backend
+          message = err.message;
       } else if (err instanceof Error) {
           message = err.message;
       }
