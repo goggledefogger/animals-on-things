@@ -7,6 +7,8 @@ import { type AnimalProfile } from '../../types/AnimalProfile'; // Need this typ
 import { ProfilePhotoGallery } from './ProfilePhotoGallery';
 // Import the uploader
 import { PhotoUploader } from './PhotoUploader';
+// Import the new panel
+import { ImageGenerationPanel } from './ImageGenerationPanel';
 
 interface WorkspacePanelProps {
   context: WorkspaceContext; // Use the imported type
@@ -14,17 +16,22 @@ interface WorkspacePanelProps {
   onPhotoSelectForGeneration?: (profileId: string, photoId: string | null) => void;
 }
 
-// Placeholder for the generation controls section
-const GenerationControlsPlaceholder: React.FC = () => (
-  <div className="mt-6 p-4 border border-dashed border-gray-300 rounded-md text-center text-gray-500">
-    Image Generation Panel Placeholder (Style, Prompt, Generate Button)
-  </div>
-);
-
 export const WorkspacePanel: React.FC<WorkspacePanelProps> = ({
   context,
   onPhotoSelectForGeneration // Destructure the handler
 }) => {
+
+  // Placeholder handler for triggering generation
+  const handleGenerate = (style: string | null, prompt: string | null) => {
+      console.log("Triggering generation with:", {
+          style,
+          prompt,
+          // Selections would be derived again here or passed up/accessed differently
+          // For now, just log the style/prompt
+      });
+      // TODO: Implement actual call to backend function
+      alert(`Generation triggered!\nStyle: ${style}\nPrompt: ${prompt}`);
+  };
 
   const renderContent = () => {
     if (!context) {
@@ -47,48 +54,51 @@ export const WorkspacePanel: React.FC<WorkspacePanelProps> = ({
           </div>
         );
 
-      case 'generation_setup':
-        // Ensure context is valid for this case (for type safety)
+      case 'generation_setup': {
         if (!context.selectedProfiles || !context.selectedPhotoMap) {
           return <p className="text-red-500">Error: Invalid context for generation setup.</p>;
         }
+
+        const generationSelections = context.selectedProfiles
+          .map(profile => ({
+            profileId: profile.id,
+            photoId: context.selectedPhotoMap[profile.id] || null,
+          }))
+          .filter(selection => selection.photoId !== null) as { profileId: string; photoId: string }[];
+
         return (
           <div>
             <h3 className="text-lg font-semibold font-nunito mb-4 text-green-700 dark:text-green-300">Generation Setup</h3>
-
-            {/* Section for selecting photos for each profile */}
+            {/* Photo Selection Section */}
             <div className="space-y-4 mb-6">
               {context.selectedProfiles.map((profile: AnimalProfile) => (
                 <div key={profile.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md border dark:border-gray-600">
                   <p className="font-medium text-gray-800 dark:text-gray-100">{profile.name}</p>
-                  {/* Use ProfilePhotoGallery for selection */}
                   <ProfilePhotoGallery
                     profileId={profile.id}
-                    // Pass down the selected photo ID for this profile from the context's map
                     selectedPhotoId={context.selectedPhotoMap[profile.id] ?? null}
-                    // Pass down the handler function from App
                     onPhotoSelect={(photoId: string | null) => {
                       if (onPhotoSelectForGeneration) {
                         onPhotoSelectForGeneration(profile.id, photoId);
                       }
                     }}
-                    // Indicate this gallery is for selection
                     isSelectable={true}
                   />
                 </div>
               ))}
             </div>
-
-            {/* Placeholder for Generation Controls (Style, Prompt, Generate Button) */}
-            <GenerationControlsPlaceholder />
-
-            {/* TODO: Add Result Display Area */}
+            {/* Generation Panel */}
+            <ImageGenerationPanel
+              selections={generationSelections} // Pass the derived selections
+              onGenerate={handleGenerate} // Pass the handler
+            />
           </div>
         );
+      }
 
-      default:
-        // Should not happen with defined types, but good practice
+      default: {
         return <p className="text-red-500">Error: Unknown workspace context.</p>;
+      }
     }
   };
 
