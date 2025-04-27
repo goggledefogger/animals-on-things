@@ -11,9 +11,9 @@ Turn photos of **any animal** (pets, wildlife, insects!) into fun, AI-generated 
     *   **Hosting:** Firebase Hosting
     *   **Database:** **Realtime Database**
     *   **Storage:** Firebase Cloud Storage
-    *   **Functions:** Firebase Cloud Functions (Node.js/TypeScript recommended)
+    *   **Functions:** Firebase Cloud Functions (Node.js/TypeScript)
     *   **Authentication:** Firebase Authentication (Anonymous)
-*   **AI Service:** OpenAI API (`gpt-image-1`)
+*   **AI Service:** OpenAI API (`gpt-image-1` via `images.edit` endpoint)
 
 ## Getting Started
 
@@ -27,11 +27,11 @@ Turn photos of **any animal** (pets, wildlife, insects!) into fun, AI-generated 
    ```bash
    # Install root dependencies
    npm install
-   
+
    # Install frontend dependencies
    cd frontend
    npm install
-   
+
    # Install functions dependencies
    cd ../functions
    npm install
@@ -39,7 +39,7 @@ Turn photos of **any animal** (pets, wildlife, insects!) into fun, AI-generated 
 
 3. **Tailwind CSS v4 Configuration**
    The project uses Tailwind CSS v4, which requires specific configuration:
-   
+
    - The frontend directory has its own PostCSS config (`frontend/postcss.config.mjs`) which uses `@tailwindcss/postcss` (not the old `tailwindcss` plugin)
    - The main CSS file (`frontend/src/index.css`) uses the new import syntax: `@import "tailwindcss";` instead of the older `@tailwind` directives
    - If you need to modify Tailwind configuration, do so in CSS files using the `@theme` directive, as Tailwind v4 uses CSS-based configuration
@@ -64,22 +64,30 @@ Turn photos of **any animal** (pets, wildlife, insects!) into fun, AI-generated 
            --member="serviceAccount:YOUR_PROJECT_ID@appspot.gserviceaccount.com" \
            --role="roles/iam.serviceAccountTokenCreator"
        ```
+   - **Configure Frontend Region (Required for Functions):**
+     - The frontend explicitly specifies `us-central1` as the region for functions.
+     - If your functions are deployed to a different region, update this in `frontend/src/firebase.ts`.
 
-5. **Run the development server**
+5. **Important Notes on Image Generation:**
+   - The `generateImage` function has an extended timeout (540 seconds, the maximum allowed) because image generation can be a time-consuming operation.
+   - The frontend client also has a matching timeout configuration in `useImageGeneration.ts`.
+   - If you experience CORS errors in development, ensure the explicit region set in `firebase.ts` matches your deployed function region.
+
+6. **Run the development server**
    ```bash
    # In the root directory
    npm run dev  # This starts both Firebase emulators and the frontend dev server
-   
+
    # Or run just the frontend
    cd frontend
    npm run dev
    ```
 
-6. **Deployment**
+7. **Deployment**
    ```bash
    # Deploy everything
    npm run deploy
-   
+
    # Or deploy specific parts
    npm run deploy:functions
    npm run deploy:hosting
@@ -89,4 +97,4 @@ Turn photos of **any animal** (pets, wildlife, insects!) into fun, AI-generated 
 ---
 *This project follows the workflow inspired by the [wasp-lang/vibe-coding-video](https://github.com/wasp-lang/vibe-coding-video).*
 *Project planning documents: [PRD.md](PRD.md), [SOFTWARE.md](SOFTWARE.md), [UI.md](UI.md)*
-*Implementation Tasks: [TASKS.md](TASKS.md)* 
+*Implementation Tasks: [TASKS.md](TASKS.md)*
