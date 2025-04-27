@@ -3,7 +3,6 @@ import { AnimalProfile } from '../../types/AnimalProfile';
 import { SelectedPhotoMap } from '../../App'; // Import the type from App
 // We'll need useAnimalPhotos to fetch photos for each profile
 import { useAnimalPhotos } from '../../hooks/useAnimalPhotos'; 
-import { AnimalPhoto } from '../../types/AnimalPhoto';
 import { Button } from '../common/Button'; // Example: Button to clear selection
 import { PhotoThumbnail } from '../common/PhotoThumbnail'; // Import the new component
 import { PhotoUploader } from './PhotoUploader'; // Import the uploader

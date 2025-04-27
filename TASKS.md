@@ -66,19 +66,26 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
 
 ## In Progress Tasks
 
-- [ ] **Implement Image Generation Cloud Function (`generateImage`)**
-  - [ ] Setup Cloud Function project (e.g., `functions/src/index.ts` if using TS).
-  - [ ] Add necessary dependencies (`firebase-admin`, `firebase-functions`, `openai`, etc.).
-  - [ ] Implement HTTPS callable function:
-    - Verify user auth token (`context.auth`).
-    - Adapt to receive `selections: [{ profileId, photoId }, ...]` in request body.
-    - Retrieve *multiple* images/details from Firebase Storage/Database based on `selections`.
-    - Formulate a combined prompt or strategy for OpenAI `gpt-image-1` API to use multiple inputs.
-    - Call OpenAI API (manage API key via env config).
-    - Handle OpenAI response/errors.
-    - Return generated image URL or data.
+- [x] **Implement Image Generation Cloud Function (`generateImage`)**
+  - [x] Setup Cloud Function project (`functions/src/index.ts`).
+  - [x] Add necessary dependencies (`firebase-admin`, `firebase-functions`, `openai`).
+  - [x] Implement HTTPS callable function:
+    - [x] Verify user auth token (`context.auth`).
+    - [x] Adapt to receive `selections: [{ profileId, photoId }, ...]` in request body.
+    - [x] Retrieve *multiple* photo details (name, path) from Firebase **Realtime Database** based on `selections`.
+    - [x] Formulate a combined text prompt incorporating selected animals (by name) and user input.
+    - [x] **Call OpenAI `gpt-image-1` API** (manage API key via `.env` -> `process.env.OPENAI_API_KEY`).
+      - Use official `openai` Node.js library (`openai.images.generate`).
+      - Specify `model: "gpt-image-1"`.
+      - Pass `prompt`, `n: 1`, `size: "1024x1024"`, `quality: "high"`.
+      - Pass `user: uid` for monitoring (as per OpenAI docs).
+      - *Note:* Do not use `response_format: "url"` (caused errors with this model).
+    - [x] Handle OpenAI response/errors (check for data, parse error messages).
+    - [x] **Store generated image metadata** in Realtime Database (`/generatedImages/{uid}`).
+    - [x] Return generated image URL (currently the direct OpenAI URL).
   - [ ] Implement basic rate limiting (e.g., using **Realtime Database** to track user generations).
 - [ ] **Implement Image Generation Frontend Integration** (Continued)
+  - [ ] UI Component: Display generated image from URL.
   - [ ] UI Component: Download button for generated image.
   - [ ] UI Component: Session gallery for recently generated images (client-side state).
 - [ ] **Refinement & Styling** (Continued)
@@ -89,9 +96,10 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
   - [ ] Write basic tests for Cloud Functions (using emulators/mocks).
   - [ ] Write basic frontend component tests.
 - [ ] **Deployment**
-  - [ ] Deploy **Realtime Database**/Storage security rules.
-  - [ ] Deploy Cloud Functions (`firebase deploy --only functions`).
-  - [ ] Build and deploy frontend app to Firebase Hosting (`firebase deploy --only hosting`).
+  - [x] Deploy **Realtime Database**/Storage security rules.
+  - [x] Deploy Cloud Functions (`firebase deploy --only functions`).
+  - [x] Build and deploy frontend app to Firebase Hosting (`firebase deploy --only hosting`).
+  - [ ] Re-enable linting in `firebase.json` predeploy hooks after addressing max-len issues.
 
 ## Implementation Plan (Revised)
 

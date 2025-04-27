@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { AnimalProfileList } from './components/features/AnimalProfileList';
 // Import the new component for selecting photos for multiple profiles

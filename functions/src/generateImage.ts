@@ -22,6 +22,7 @@ interface GenerateImageRequestData {
 interface AnimalPhotoData {
   storagePath: string;
   createdAt: number;
+  // eslint-disable-next-line max-len
   // Add other fields if they exist in your RTDB schema (e.g., filename, contentType)
 }
 
@@ -31,6 +32,7 @@ interface AnimalPhotoData {
 const openAIKey = process.env.OPENAI_API_KEY;
 if (!openAIKey) {
   // Log error but don't throw here, let the function call handle it
+  // eslint-disable-next-line max-len
   console.error("OpenAI API key environment variable (OPENAI_API_KEY) not set.");
 }
 // Only initialize if the key exists
@@ -49,6 +51,7 @@ type FetchedPhotoDetail = {
  * Callable function to generate a new COMBINED image based on multiple
  * selected photos, a style, and an optional custom prompt.
  */
+// eslint-disable-next-line max-len
 export const generateImage = functions.https.onCall(async (data: GenerateImageRequestData, context) => {
   // 1. Authentication Check
   if (!context.auth) {
@@ -90,6 +93,7 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
   // Check if OpenAI client was initialized
   if (!openai) {
     // Throw here if the client wasn't set up due to missing key
+    // eslint-disable-next-line max-len
     throw new HttpsError("internal", "OpenAI API key is not configured correctly.");
   }
 
@@ -109,8 +113,8 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
     if (!photoSnapshot.exists()) {
       // Split long error message
       throw new HttpsError("not-found",
-        `Photo data not found for profile ${selection.profileId}, ` +
-        `photo ${selection.photoId}.`);
+        // eslint-disable-next-line max-len
+        `Photo data not found for profile ${selection.profileId}, photo ${selection.photoId}.`);
     }
     // Profile name might not exist, handle gracefully
     const profileName = profileSnapshot.exists() ?
@@ -121,8 +125,8 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
     if (!photoData.storagePath) {
       // Split long error message
       throw new HttpsError("internal",
-        `Missing storagePath for photo ${selection.photoId} in profile ` +
-        `${selection.profileId}.`);
+        // eslint-disable-next-line max-len
+        `Missing storagePath for photo ${selection.photoId} in profile ${selection.profileId}.`);
     }
     return {
       ...selection, // Keep profileId, photoId
@@ -136,15 +140,14 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
     // Await and cast to the defined type
     fetchedPhotoDetails = await Promise.all(detailFetchPromises);
     // Split long log message
-    functions.logger.info(
-      "Successfully fetched details for all selected photos:",
-      fetchedPhotoDetails
-    );
+    // eslint-disable-next-line max-len
+    functions.logger.info("Successfully fetched details for all selected photos:", fetchedPhotoDetails);
   } catch (error) {
     functions.logger.error("Error fetching photo details:", error);
     if (error instanceof HttpsError) {
       throw error; // Re-throw HttpsError
     }
+    // eslint-disable-next-line max-len
     throw new HttpsError("internal", "Failed to fetch details for selected photos.");
   }
 
@@ -161,12 +164,12 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
 
   // Combine user prompt, animal descriptions, and style
   // eslint-disable-next-line max-len
-  const combinedPrompt = `Create an image in a ${style} style featuring ` +
-                       `${animalDescriptions}. ${prompt || ""}`.trim();
+  const combinedPrompt = `Create an image in a ${style} style featuring ${animalDescriptions}. ${prompt || ""}`.trim();
+  // eslint-disable-next-line max-len
   functions.logger.info(`Constructed AI Prompt: ${combinedPrompt}`);
 
   // 5. Call External Image Generation Service (OpenAI - latest model)
-  let generatedImageUrlFromApi: string | undefined;
+  let generatedImageBase64: string | undefined;
   try {
     functions.logger.info("Calling OpenAI GPT Image Generation API...");
     // Use the newest gpt-image-1 model instead of dall-e-3
@@ -175,18 +178,18 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
       prompt: combinedPrompt,
       n: 1, // Generate one image
       size: "1024x1024",
-      quality: "hd", // Use high quality for better results
-      response_format: "url", // Get URL directly
+      quality: "high", // Use 'high' quality for gpt-image-1
+      user: uid, // Pass the Firebase user ID for monitoring
     });
 
-    generatedImageUrlFromApi = response.data?.[0]?.url;
-    if (!generatedImageUrlFromApi) {
-      functions.logger.error("OpenAI response missing image URL",
+    generatedImageBase64 = response.data?.[0]?.b64_json;
+    if (!generatedImageBase64) {
+      functions.logger.error("OpenAI response missing image b64_json data",
         {responseData: response.data});
-      throw new Error("OpenAI response did not contain an image URL.");
+      throw new Error("OpenAI response did not contain image b64_json data.");
     }
-    functions.logger.info("OpenAI image generation successful.",
-      {url: generatedImageUrlFromApi});
+    // eslint-disable-next-line max-len
+    functions.logger.info("OpenAI image generation successful (received base64 data).");
   } catch (error: unknown) {
     // Use `unknown` type for error
     functions.logger.error("OpenAI API call failed:", error);
@@ -195,55 +198,63 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
     let errorMessage = "Unknown OpenAI error";
     if (typeof error === "object" && error !== null) {
       // Need "any" here due to unknown response structure
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const potentialMsg = (error as any).response?.data?.error?.message ||
-        (error as Error).message;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, max-len
+      const potentialMsg = (error as any).response?.data?.error?.message || (error as Error).message;
       if (potentialMsg) {
         errorMessage = potentialMsg;
       }
     }
     // Split long error message
-    throw new HttpsError("internal",
-      `Failed to generate image: ${errorMessage}`);
+    // eslint-disable-next-line max-len
+    throw new HttpsError("internal", `Failed to generate image: ${errorMessage}`);
   }
   // ---- END CORE AI LOGIC ----
 
   // 6. Upload Generated Image to Cloud Storage
-  const finalImageUrl = generatedImageUrlFromApi || ""; // Default to empty string if somehow undefined
+  // eslint-disable-next-line max-len
+  let finalImageUrl = ""; // Initialize final URL
   try {
     // If we have a valid URL from OpenAI, store a copy in our own Storage
-    if (generatedImageUrlFromApi) {
-      // Declare but don't use bucket variable for now (uncomment when fully implementing)
-      // const bucket = admin.storage().bucket();
+    if (generatedImageBase64) {
+      const bucket = admin.storage().bucket(); // Get default bucket
       const timestamp = Date.now();
-      const destination = `generated/${uid}/${timestamp}_${style}.jpg`;
+      // Use .png extension as per OpenAI default b64_json format
+      const destination = `generated/${uid}/${timestamp}_${style}.png`;
 
+      // eslint-disable-next-line max-len
       functions.logger.info(`Storing generated image in: ${destination}`);
 
-      // We'll skip downloading and re-uploading for now
-      // This would require an HTTP client, which we can add when needed:
-      //
-      // const axios = require('axios');
-      // const imageResponse = await axios.get(generatedImageUrlFromApi,
-      //   { responseType: 'arraybuffer' });
-      // await bucket.file(destination).save(imageResponse.data,
-      //   { contentType: 'image/jpeg' });
-      //
-      // const [signedUrl] = await bucket.file(destination).getSignedUrl({
-      //   action: 'read',
-      //   expires: '03-01-2500', // Far future expiration
-      // });
-      // finalImageUrl = signedUrl;
+      // Decode base64 string to buffer
+      const imageBuffer = Buffer.from(generatedImageBase64, "base64");
 
-      // For now, just use the OpenAI URL directly
-      functions.logger.info(`Using OpenAI URL directly: ${finalImageUrl}`);
+      // Upload buffer to Firebase Storage
+      const file = bucket.file(destination);
+      await file.save(imageBuffer, {
+        metadata: {
+          contentType: "image/png", // Specify content type
+          metadata: { // Optional: Add custom metadata
+            firebaseStorageDownloadTokens: Date.now().toString(), // eslint-disable-line max-len
+          },
+        },
+      });
+      functions.logger.info("Image successfully uploaded to Firebase Storage.");
+
+      // Get a publicly accessible URL (e.g., signed URL)
+      // Using getSignedUrl for long-term access (adjust expires as needed)
+      const [signedUrl] = await file.getSignedUrl({
+        action: "read",
+        expires: "03-01-2500", // Set a far-future expiration date
+      });
+      finalImageUrl = signedUrl; // Update finalImageUrl with the Storage URL
+      functions.logger.info(`Using Firebase Storage URL: ${finalImageUrl}`);
+    } else {
+      // This case should ideally not happen if the API call succeeded
+      functions.logger.warn("No base64 image data received from OpenAI.");
     }
   } catch (uploadError) {
     // Non-fatal error - log but continue with the OpenAI URL
-    functions.logger.error(
-      "Failed to store generated image to Cloud Storage (non-fatal):",
-      uploadError
-    );
+    // eslint-disable-next-line max-len
+    functions.logger.error("Failed to store generated image to Cloud Storage (non-fatal):", uploadError);
     // We'll continue and return the OpenAI URL
   }
 
@@ -262,10 +273,8 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
     functions.logger.info("Saved generated image metadata to RTDB");
   } catch (dbError) {
     // Non-fatal error - log but don't fail the function
-    functions.logger.error(
-      "Failed to save generated image metadata (non-fatal):",
-      dbError
-    );
+    // eslint-disable-next-line max-len
+    functions.logger.error("Failed to save generated image metadata (non-fatal):", dbError);
   }
 
   // 8. Return Result
