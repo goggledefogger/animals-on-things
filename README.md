@@ -50,6 +50,20 @@ Turn photos of **any animal** (pets, wildlife, insects!) into fun, AI-generated 
    - Login to Firebase: `firebase login`
    - Initialize Firebase in the project: `firebase init`
    - Set environment variables for Cloud Functions (e.g., OpenAI API Key)
+     - For the `generateImage` function, you need to set the `OPENAI_API_KEY` environment variable. You can do this locally by creating a `.env` file in the `functions` directory (`functions/.env`) with the line:
+       ```
+       OPENAI_API_KEY=your_openai_api_key_here
+       ```
+     - For deployment, set the secret using the `firebase functions:secrets:set` command (recommended) or configure it in the Google Cloud Console.
+   - **Grant Permissions for Signed URLs (Required for `generateImage` function):**
+     - The Cloud Function's service account needs permission to create signed URLs for Firebase Storage.
+     - Grant the **Service Account Token Creator** role (`roles/iam.serviceAccountTokenCreator`) to the function's service account (usually `YOUR_PROJECT_ID@appspot.gserviceaccount.com` for 1st gen functions).
+     - Run the following command, replacing `YOUR_PROJECT_ID` with your actual project ID:
+       ```bash
+       gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+           --member="serviceAccount:YOUR_PROJECT_ID@appspot.gserviceaccount.com" \
+           --role="roles/iam.serviceAccountTokenCreator"
+       ```
 
 5. **Run the development server**
    ```bash

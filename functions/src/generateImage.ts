@@ -1,7 +1,7 @@
 import * as functions from "firebase-functions/v1";
 import {HttpsError} from "firebase-functions/v1/https";
 import * as admin from "firebase-admin";
-import OpenAI from "openai"; // Import the OpenAI library
+import OpenAI, { toFile } from "openai"; // Import OpenAI and toFile helper
 
 // Admin SDK is initialized in index.ts
 
@@ -44,7 +44,7 @@ type FetchedPhotoDetail = {
   profileId: string;
   photoId: string;
   profileName: string;
-  storagePath: string;
+  imageBuffer: Buffer;
 };
 
 /**
@@ -99,6 +99,7 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
 
   // 3. Permission Check & Fetch Photo Info (Iterate through selections)
   const db = admin.database();
+  const storageBucket = admin.storage().bucket(); // Get storage bucket
   // Fetch profile names along with storage paths for better prompt generation
   const detailFetchPromises = selections.map(async (selection) => {
     const profileRef = db.ref(`/profiles/${uid}/${selection.profileId}/name`);
@@ -128,10 +129,23 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
         // eslint-disable-next-line max-len
         `Missing storagePath for photo ${selection.photoId} in profile ${selection.profileId}.`);
     }
+
+    // Download image from storage
+    let downloadedImageBuffer: Buffer;
+    try {
+      const file = storageBucket.file(photoData.storagePath);
+      const [buffer] = await file.download();
+      downloadedImageBuffer = buffer;
+      functions.logger.info(`Successfully downloaded image for ${selection.photoId} from ${photoData.storagePath}`);
+    } catch (downloadError) {
+      functions.logger.error(`Failed to download image ${photoData.storagePath}:`, downloadError);
+      throw new HttpsError("internal", `Failed to download image for photo ${selection.photoId}.`);
+    }
+
     return {
       ...selection, // Keep profileId, photoId
       profileName: profileName,
-      storagePath: photoData.storagePath,
+      imageBuffer: downloadedImageBuffer,
     };
   });
 
@@ -171,10 +185,22 @@ export const generateImage = functions.https.onCall(async (data: GenerateImageRe
   // 5. Call External Image Generation Service (OpenAI - latest model)
   let generatedImageBase64: string | undefined;
   try {
-    functions.logger.info("Calling OpenAI GPT Image Generation API...");
-    // Use the newest gpt-image-1 model instead of dall-e-3
-    const response = await openai.images.generate({
+    // Prepare image data using the toFile helper
+    const inputImagesPromises = fetchedPhotoDetails.map(async (detail, index) => {
+      // Convert buffer to Uploadable using toFile
+      // Assuming input photos are likely PNG or JPEG, let's try PNG for now
+      // We might need to determine the actual content type later if this fails
+      return await toFile(detail.imageBuffer, `input_${index}.png`, {
+        type: "image/png", 
+      });
+    });
+    const inputImages = await Promise.all(inputImagesPromises);
+
+    functions.logger.info("Calling OpenAI GPT Image Edit API with image references...");
+
+    const response = await openai.images.edit({ // Changed from generate to edit
       model: "gpt-image-1", // Use the latest image generation model
+      image: inputImages, // Pass the downloaded image buffers
       prompt: combinedPrompt,
       n: 1, // Generate one image
       size: "1024x1024",
