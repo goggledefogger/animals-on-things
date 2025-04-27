@@ -36,7 +36,7 @@ export const AnimalProfilesPanel: React.FC<AnimalProfilesPanelProps> = ({
   };
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="h-full flex flex-col overflow-hidden">
       <div className="mb-4">
         <div className="flex justify-between items-center mb-3">
           <h2 className="text-xl font-semibold font-nunito text-sky-800 dark:text-sky-300">Animal Profiles</h2>
@@ -62,7 +62,7 @@ export const AnimalProfilesPanel: React.FC<AnimalProfilesPanelProps> = ({
         {error && <p className="text-red-500 text-xs mt-1">Error: {error}</p>}
       </div>
 
-      <div className="flex-grow overflow-y-auto pr-1">
+      <div className="flex-grow pr-1 pb-2">
         {loading && <p className="text-center text-gray-500">Loading profiles...</p>}
         {!loading && profiles.length === 0 && (
           <p className="text-center text-gray-500 mt-4">No animal profiles created yet.</p>

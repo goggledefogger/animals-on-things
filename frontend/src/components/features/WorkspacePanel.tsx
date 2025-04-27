@@ -10,7 +10,8 @@ import { PhotoUploader } from './PhotoUploader';
 
 interface WorkspacePanelProps {
   context: WorkspaceContext; // Use the imported type
-  // Add other props as needed, e.g., profileId for detail view
+  // Add the handler prop from App
+  onPhotoSelectForGeneration?: (profileId: string, photoId: string | null) => void;
 }
 
 // Placeholder for the generation controls section
@@ -20,15 +21,10 @@ const GenerationControlsPlaceholder: React.FC = () => (
   </div>
 );
 
-// Placeholder for the photo selection part within generation setup
-const MiniPhotoSelectorPlaceholder: React.FC<{ profileName: string }> = ({ profileName }) => (
-  <div className="mt-2 p-3 border border-dashed border-gray-300 rounded-md text-center text-gray-500 text-sm">
-    Photo Selector for {profileName} Placeholder
-  </div>
-);
-
-
-export const WorkspacePanel: React.FC<WorkspacePanelProps> = ({ context }) => {
+export const WorkspacePanel: React.FC<WorkspacePanelProps> = ({
+  context,
+  onPhotoSelectForGeneration // Destructure the handler
+}) => {
 
   const renderContent = () => {
     if (!context) {
@@ -52,6 +48,10 @@ export const WorkspacePanel: React.FC<WorkspacePanelProps> = ({ context }) => {
         );
 
       case 'generation_setup':
+        // Ensure context is valid for this case (for type safety)
+        if (!context.selectedProfiles || !context.selectedPhotoMap) {
+          return <p className="text-red-500">Error: Invalid context for generation setup.</p>;
+        }
         return (
           <div>
             <h3 className="text-lg font-semibold font-nunito mb-4 text-green-700 dark:text-green-300">Generation Setup</h3>
@@ -61,8 +61,20 @@ export const WorkspacePanel: React.FC<WorkspacePanelProps> = ({ context }) => {
               {context.selectedProfiles.map((profile: AnimalProfile) => (
                 <div key={profile.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md border dark:border-gray-600">
                   <p className="font-medium text-gray-800 dark:text-gray-100">{profile.name}</p>
-                  {/* Placeholder for photo selection for this profile */}
-                  <MiniPhotoSelectorPlaceholder profileName={profile.name} />
+                  {/* Use ProfilePhotoGallery for selection */}
+                  <ProfilePhotoGallery
+                    profileId={profile.id}
+                    // Pass down the selected photo ID for this profile from the context's map
+                    selectedPhotoId={context.selectedPhotoMap[profile.id] ?? null}
+                    // Pass down the handler function from App
+                    onPhotoSelect={(photoId: string | null) => {
+                      if (onPhotoSelectForGeneration) {
+                        onPhotoSelectForGeneration(profile.id, photoId);
+                      }
+                    }}
+                    // Indicate this gallery is for selection
+                    isSelectable={true}
+                  />
                 </div>
               ))}
             </div>

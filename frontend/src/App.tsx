@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useAuth } from './contexts/AuthContext';
 // import { AnimalProfileList } from './components/features/AnimalProfileList'; // Old component
 // import { SelectedPhotosPanel } from './components/features/SelectedPhotosPanel'; // Old component
@@ -10,55 +10,77 @@ import { type AnimalProfile } from './types/AnimalProfile'; // Import AnimalProf
 import { AnimalProfilesPanel } from './components/features/AnimalProfilesPanel';
 import { WorkspacePanel } from './components/features/WorkspacePanel';
 
+// Define map type for selected photos
+export interface SelectedPhotoMap {
+  [profileId: string]: string | null; // Maps profile ID to selected Photo ID (or null)
+}
+
 // Define and export the type for the workspace context (can be expanded later)
 export type WorkspaceContext =
   | null
   | { type: 'viewing_details', profileId: string }
-  | { type: 'generation_setup', selectedProfiles: AnimalProfile[] }; // Include selected profiles
+  | { type: 'generation_setup', selectedProfiles: AnimalProfile[], selectedPhotoMap: SelectedPhotoMap }; // Include selected profiles and selectedPhotoMap
 
 function App() {
   const { currentUser, loading } = useAuth();
   const [workspaceContext, setWorkspaceContext] = useState<WorkspaceContext>(null);
   // Centralized state for selected profiles for generation
   const [selectedProfiles, setSelectedProfiles] = useState<AnimalProfile[]>([]);
+  // State to map selected profile IDs to their chosen photo ID for generation
+  const [selectedPhotoMap, setSelectedPhotoMap] = useState<SelectedPhotoMap>({});
 
   // Handler for when user clicks "View Details" on a profile card
   const handleViewProfileDetails = useCallback((profileId: string) => {
     setWorkspaceContext({ type: 'viewing_details', profileId });
     // Deselect profiles when viewing details
     setSelectedProfiles([]);
+    setSelectedPhotoMap({}); // Clear photo selections too
   }, []);
 
   // Handler for toggling profile selection - lives in App now
   const handleProfileSelectToggle = useCallback((profile: AnimalProfile) => {
+    let newSelectedProfiles: AnimalProfile[];
+    const newPhotoMap: SelectedPhotoMap = { ...selectedPhotoMap }; // Start with current map
+
     setSelectedProfiles(prevSelected => {
       const isSelected = prevSelected.some(p => p.id === profile.id);
       if (isSelected) {
-        return prevSelected.filter(p => p.id !== profile.id);
+        newSelectedProfiles = prevSelected.filter(p => p.id !== profile.id);
+        // Remove from photo map if deselecting
+        delete newPhotoMap[profile.id];
       } else {
-        return [...prevSelected, profile];
+        newSelectedProfiles = [...prevSelected, profile];
+        // Add to photo map with null selection initially
+        newPhotoMap[profile.id] = newPhotoMap[profile.id] || null;
       }
+      // Update the photo map state
+      setSelectedPhotoMap(newPhotoMap);
+      // Update context immediately based on the new selection
+      if (newSelectedProfiles.length > 0) {
+          setWorkspaceContext({ type: 'generation_setup', selectedProfiles: newSelectedProfiles, selectedPhotoMap: newPhotoMap });
+      } else {
+          setWorkspaceContext(null); // Revert to default if none selected
+      }
+      return newSelectedProfiles;
     });
-  }, []);
+  }, [selectedPhotoMap]); // Depend on photo map
 
-  // Effect to update workspace context based on selected profiles
-  useEffect(() => {
-    // Don't change context if we are currently viewing details
-    if (workspaceContext?.type === 'viewing_details') {
-      // If the selection changed *while* viewing details,
-      // we might want to switch context? For now, we ignore selection changes.
-      return;
-    }
-
-    // Update context based on selection state managed here in App
-    if (selectedProfiles.length > 0) {
-      setWorkspaceContext({ type: 'generation_setup', selectedProfiles: selectedProfiles });
+  // Handler for selecting a specific photo for a profile *during generation setup*
+  const handlePhotoSelectForGeneration = useCallback((profileId: string, photoId: string | null) => {
+    if (selectedProfiles.some(p => p.id === profileId)) {
+      const newPhotoMap = { ...selectedPhotoMap, [profileId]: photoId };
+      setSelectedPhotoMap(newPhotoMap);
+      // Update context ONLY if already in generation setup
+      setWorkspaceContext(prevContext => {
+        if (prevContext?.type === 'generation_setup') {
+          return { ...prevContext, selectedPhotoMap: newPhotoMap };
+        }
+        return prevContext;
+      });
     } else {
-      // If no profiles selected, and not viewing details, set context to null (default)
-      setWorkspaceContext(null);
+      console.warn("Attempted to select photo for a profile not selected for generation");
     }
-    // Depend only on selectedProfiles and the context type
-  }, [selectedProfiles, workspaceContext?.type]);
+  }, [selectedProfiles, selectedPhotoMap]); // Depend on selectedProfiles and map
 
   return (
     // Using the theme colors defined in the visual language
@@ -97,6 +119,7 @@ function App() {
             <div className="w-full xl:w-2/3">
               <WorkspacePanel
                 context={workspaceContext}
+                onPhotoSelectForGeneration={handlePhotoSelectForGeneration}
               />
             </div>
           </div>
