@@ -71,7 +71,7 @@ function App() {
           Animals On Things
         </h1>
 
-        <Card className="w-full mb-6 sm:mb-8">
+        {/* <Card className="w-full mb-6 sm:mb-8">
           <h2 className="text-lg sm:text-xl font-semibold mb-2">Auth Status</h2>
           {loading && <p>Loading Auth State...</p>}
           {!loading && currentUser && (
@@ -82,7 +82,7 @@ function App() {
             </div>
           )}
           {!loading && !currentUser && <p className="text-red-600 dark:text-red-400">Not signed in.</p>}
-        </Card>
+        </Card> */}
 
         {!loading && currentUser && (
           <div className="flex flex-col xl:flex-row gap-6 xl:gap-8">
