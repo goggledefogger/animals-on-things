@@ -5,12 +5,13 @@
   "description": "Root package for Animals On Things project (Frontend + Firebase Functions)",
   "scripts": {
     "dev": "npm run dev --prefix frontend",
-    "lint:functions": "npm run lint --prefix functions",
-    "build:functions": "npm run build --prefix functions",
+    "lint:functions": "npm run lint --prefix firebase/functions",
+    "build:functions": "npm run build --prefix firebase/functions",
     "deploy:functions": "firebase deploy --only functions",
     "deploy:hosting": "npm run build --prefix frontend && firebase deploy --only hosting",
     "deploy:rules": "firebase deploy --only database,storage",
-    "deploy": "npm run deploy:rules && npm run deploy:functions && npm run deploy:hosting"
+    "deploy": "npm run deploy:rules && npm run deploy:functions && npm run deploy:hosting",
+    "postinstall": "npm install --prefix frontend && npm install --prefix firebase/functions"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
