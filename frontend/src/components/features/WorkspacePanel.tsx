@@ -1,14 +1,8 @@
 import React from 'react';
 import { Card } from '../common/Card';
-// Comment out or remove imports for non-existent/unused components
-// import { AnimalProfileDetails } from './AnimalProfileDetails';
 import { SelectedPhotosPanel } from './SelectedPhotosPanel';
 import { ImageGenerationPanel } from './ImageGenerationPanel';
 import { type WorkspaceContext } from '../../App';
-// Remove other unused imports
-// import { type AnimalProfile } from '../../types/AnimalProfile';
-// import { ProfilePhotoGallery } from './ProfilePhotoGallery';
-// import { PhotoUploader } from './PhotoUploader';
 
 // Define input type for the delete handler prop (can be defined here or imported)
 interface DeletePhotoInput {
