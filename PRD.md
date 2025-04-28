@@ -18,6 +18,9 @@ Animals-On-Things allows **animal lovers** to create profiles for **any animal**
     -   Generate a unique anonymous user ID upon first visit.
     -   Store this ID persistently in the user's browser (e.g., local storage).
     -   Associate all created Animal Profiles and Photos with this ID.
+*   **Email Link Authentication:**
+    -   Allow users to sign in/up via an email link.
+    -   Associate all created Animal Profiles, Photos, and Generated Images with the authenticated user ID.
 *   **Animal Profile Management:**
     -   Allow users to create a new "Animal" profile (e.g., giving it a name or identifier).
     -   Display a list or gallery of the user's created Animal Profiles.

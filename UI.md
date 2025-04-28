@@ -22,7 +22,12 @@ This document outlines the user interface design for the Animals-On-Things appli
         -   **Result Display:** Area for the final generated image.
         -   **Download Button:** Obvious icon/button to save the result.
         -   **Session Gallery (Generated Images):** Thumbnails showing recent generations.
+    -   **Image History Gallery:** (Replaces Session Gallery) A persistent view (e.g., separate page/tab) showing all past generated images for the logged-in user. Includes:
+        -   Thumbnail display (using letterboxing/pillarboxing to show full image).
+        -   Download button per image.
+        -   **Delete button per image** with confirmation.
     -   **Photo Thumbnail Component:** (Used within `SelectedPhotosPanel`) Displays a single image fetched from a storage path, handles loading/error state for the image.
+    -   **Header:** Includes logo (adjusted for size/aspect ratio) and navigation links (Generator, Gallery) and Sign Out button.
 
 -   **Interaction patterns**
     -   **Initial View:** Shows existing Animal Profiles (if any) and the "+ Add New Animal" option in the left column.
@@ -36,6 +41,7 @@ This document outlines the user interface design for the Animals-On-Things appli
     -   **Generation Flow:** Select style/prompt in `ImageGenerationPanel` -> Click Generate (enabled once valid selections exist) -> View/Download Result.
     -   Clear visual feedback for loading states (fetching profiles, fetching photo thumbnails, uploading photos, generating AI image).
     -   Provides ability to delete Animal Profiles or individual photos.
+    -   **Authentication:** Login/Signup forms/modals (using Email Link for Phase 1).
 
 -   **Visual Design Elements & Color Scheme**
     -   Utilizes a bright, cheerful, and inviting color palette, suitable for a wide range of animals.

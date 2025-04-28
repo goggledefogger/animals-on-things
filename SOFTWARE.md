@@ -34,7 +34,14 @@ This document details the technical requirements for Phase 1, using **Firebase**
         -   `useAuth.ts`: (Already part of AuthContext) Hook to access auth state.
         -   `useAnimalProfiles.ts`: Hook for fetching and managing animal profiles.
         -   `useAnimalPhotos.ts`: Hook for fetching photos for a specific profile.
-        -   `useImageGeneration.ts`: *(Needs update)* Hook for calling the `generateImage` Cloud Function and managing generation state (will need to handle array input).
+        -   `useImageGeneration.ts`: Hook for calling `generateImage` and handling status updates:
+            -   Initiates generation via HTTPS callable function.
+            -   Listens for results on RTDB path `/generatedImages/$uid`, filtering by `requestId`.
+            -   Handles client-side errors gracefully (distinguishing recoverable network issues from definitive failures) to avoid premature error states, especially on mobile.
+            -   Includes a client-side timeout for robustness.
+        -   `usePhotoDeletion.ts`: Hook for deleting animal profile photos.
+        -   `useImageHistory.ts`: Hook for fetching generated image history.
+        -   `useImageHistoryDeletion.ts`: Hook for deleting generated image history items.
     -   `services/`: Modules for interacting with external services.
     -   `types/`: TypeScript type definitions (e.g., `AnimalProfile.ts`, `AnimalPhoto.ts`).
     -   `utils/`: Utility functions.
@@ -56,12 +63,13 @@ This document details the technical requirements for Phase 1, using **Firebase**
     -   Encapsulated within custom hooks (`hooks/`).
     -   Components consume hooks or receive data/handlers via props.
     -   Hooks use `currentUser.uid` from `useAuth()`.
-    -   Realtime Database: `firebase/database` SDK.
+    -   Realtime Database: `firebase/database` SDK, using `onValue` listeners for reactive updates (e.g., image generation status, history).
     -   Storage: `firebase/storage` SDK (including `getDownloadURL` for `PhotoThumbnail`).
     -   Functions: `firebase/functions` SDK (HTTPS callable functions).
 
 -   **State management**
     -   **Frontend (Phase 1):** Firebase SDK for auth state. React state (`useState`, `useCallback`) in `App.tsx` for managing selections. Realtime Database listeners in hooks for data updates.
+    -   **Frontend:** Firebase SDK for auth state. `useState`, `useCallback`, `useRef` for component and hook state. RTDB listeners (`onValue`) within hooks (`useImageGeneration`, `useImageHistory`, `useAnimalProfiles`) for reactive data fetching and status updates.
     -   **Backend:** Cloud Functions remain stateless.
 
 -   **Data flow (Example: Image Generation - Multi-Select)**
@@ -103,7 +111,7 @@ This document details the technical requirements for Phase 1, using **Firebase**
         -   **Database:** **Realtime Database**
         -   **Storage:** Firebase Cloud Storage
         -   **Functions:** Firebase Cloud Functions (Node.js/TypeScript recommended, or Python)
-        -   **Authentication:** Firebase Authentication
+        -   **Authentication:** Firebase Authentication (Email Link)
         -   **(Phase 3) Scheduler:** Google Cloud Scheduler (for triggering daily function)
     -   **AI Service:** OpenAI API (`gpt-image-1` for image generation, potentially Chat Completions API for theme generation in Phase 3)
         -   *Note:* API Key management via Firebase Functions environment configuration.
@@ -112,6 +120,10 @@ This document details the technical requirements for Phase 1, using **Firebase**
 
 -   **Authentication Process**
     -   Phase 1 uses **Firebase Authentication**.
+    -   Phase 1 uses **Firebase Authentication (Email Link)**.
+    -   Client requests sign-in link via `sendSignInLinkToEmail`.
+    -   User clicks link, returns to `/finishLogin` route.
+    -   Client completes sign-in using `isSignInWithEmailLink` and `signInWithEmailLink`.
     -   Cloud Functions will verify user identity via Firebase Auth tokens passed in requests.
     -   **Realtime Database** & Storage security rules will be used to enforce data access based on `uid`.
 
@@ -161,6 +173,7 @@ This document details the technical requirements for Phase 1, using **Firebase**
         "generatedImages": {
           "$uid": {
             "$generatedImageId": {
+              "requestId": "unique-request-id-from-client", // Added to track generation source
               "prompt": "Sparky and Mittens playing chess",
               "style": "cartoon",
               "model": "gpt-image-1",
