@@ -118,12 +118,14 @@ export const ImageHistoryGallery: React.FC = () => {
           const isDeletingThis = deletingId === item.generatedImageId;
           return (
             <Card key={item.generatedImageId} className="overflow-hidden flex flex-col">
-              <img
-                src={item.imageUrl}
-                alt={`Generated image from ${formatDate(item.createdAt)}`}
-                className="w-full h-48 object-cover bg-gray-200 dark:bg-gray-700" // Fixed height, object-cover
-                loading="lazy" // Lazy load images below the fold
-              />
+              <div className="w-full h-48 bg-black flex items-center justify-center overflow-hidden">
+                <img
+                  src={item.imageUrl}
+                  alt={`Generated image from ${formatDate(item.createdAt)}`}
+                  className="object-contain w-full h-full"
+                  loading="lazy"
+                />
+              </div>
               <div className="p-3 flex-grow flex flex-col justify-between">
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{formatDate(item.createdAt)}</p>

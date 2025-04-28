@@ -48,7 +48,7 @@ const AppLayout: React.FC<{children: React.ReactNode}> = ({ children }) => {
         {/* Header with Sign Out Button */}
         <header className="mb-8 sm:mb-10 flex flex-col sm:flex-row justify-between items-center">
           <Link to="/" className="flex items-center text-center text-4xl sm:text-5xl font-bold font-nunito my-4 sm:my-6 text-sky-700 dark:text-sky-300 no-underline hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
-            <img src={logo} alt="Animals On Things logo" className="w-10 sm:w-12 mr-3 self-stretch" />
+            <img src={logo} alt="Animals On Things logo" className="h-10 sm:h-12 w-auto mr-3" />
             Animals On Things
           </Link>
           {/* Navigation and Sign Out Button */}
