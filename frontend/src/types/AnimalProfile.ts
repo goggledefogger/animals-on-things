@@ -1,8 +1,10 @@
 // Based on SOFTWARE.md -> Database Design (Realtime Database)
 
 export interface AnimalProfile {
-  id: string; // The unique key ($profileId) from Firebase RTDB
+  id: string; // Firebase key
   name: string;
-  createdAt: number; // Stored as Unix timestamp (milliseconds)
+  createdAt: number; // Firebase timestamp (server value)
+  // Optionally add a field for a primary photo URL later
+  // primaryPhotoUrl?: string;
   // photos?: { [photoId: string]: AnimalPhoto }; // Optional: Might add later if needed directly here
-} 
+}

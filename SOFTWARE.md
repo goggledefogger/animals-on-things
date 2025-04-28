@@ -76,13 +76,13 @@ This document details the technical requirements for Phase 1, using **Firebase**
     9.  Frontend (`App.tsx`) prepares the `selections` array (containing `{profileId, photoId}` pairs for profiles with a selected photo).
     10. Frontend makes an HTTPS request to `generateImage` Cloud Function, sending the `selections` array, style/prompt, and user's ID token.
     11. Cloud Function (`generateImage`) verifies token.
-    12. Cloud Function iterates through the `selections` array, retrieving corresponding image data/metadata from Firebase Storage/Database.
-    13. Cloud Function formulates a strategy and prompt for OpenAI API (`gpt-image-1`) to combine inputs.
-    14. Cloud Function calls OpenAI API.
-    15. OpenAI API returns the single, combined generated image.
+    12. Cloud Function iterates through the `selections` array, retrieving corresponding **image data (buffers)** and profile names from Firebase Storage/Database.
+    13. Cloud Function formulates a text `prompt` using profile names, style, and user input.
+    14. Cloud Function calls OpenAI API endpoint **`images.edit`** with the **input image buffers** and the text `prompt`.
+    15. OpenAI API returns the single, combined generated image as **base64 data**.
     16. Cloud Function receives the result.
-    17. Cloud Function potentially saves result metadata and returns the generated image URL to the frontend.
-    18. Frontend (`ImageGenerationPanel`) receives the response and displays the generated image.
+    17. Cloud Function **decodes the base64 data, uploads the new image to Firebase Storage**, gets a URL, and saves result metadata (including the Storage URL) to the database.
+    18. Frontend (`ImageGenerationPanel`) receives the **Firebase Storage URL** and displays the generated image.
     19. User can download the image.
 
 -   **Data flow (Example: Daily Image Generation - Phase 3)**
@@ -121,9 +121,9 @@ This document details the technical requirements for Phase 1, using **Firebase**
 
 -   **API Design (Cloud Functions)**
     -   **Function:** `generateImage` (HTTPS Trigger)
-        -   **Request (POST):** `{ "selections": [{ "profileId": "...". "photoId": "..." }, ...], "style": "optional_style_name", "prompt": "optional_custom_prompt" }` (Authorization header with Firebase ID token)
-        -   **Response (Success - 200 OK):** `{ "imageUrl": "url_to_single_generated_image.jpg" }`
-        -   **Response (Error - 4xx/5xx):** `{ "error": "Error message" }`
+        -   **Request (POST):** `{ \"selections\": [{ \"profileId\": \"...\". \"photoId\": \"...\" }, ...], \"style\": \"optional_style_name\", \"prompt\": \"optional_custom_prompt\" }` (Authorization header with Firebase ID token)
+        -   **Response (Success - 200 OK):** `{ \"imageUrl\": \"url_to_single_generated_image.jpg\" }` (URL points to **Firebase Storage**)
+        -   **Response (Error - 4xx/5xx):** `{ \"error\": \"Error message\" }`
     -   *Other functions needed:* Possibly functions for complex data operations not suitable for direct client access, or scheduled tasks later.
     -   **(Phase 3) Function:** `dailyImageGenerator` (Cloud Scheduler Trigger)
         -   Handles logic described in Phase 3 data flow.
@@ -163,6 +163,7 @@ This document details the technical requirements for Phase 1, using **Firebase**
             "$generatedImageId": {
               "prompt": "Sparky and Mittens playing chess",
               "style": "cartoon",
+              "model": "gpt-image-1",
               // Store the input selections that generated this image
               "sourceSelections": [
                 { "profileId": "$profileId", "photoId": "$photoId" },
@@ -173,15 +174,15 @@ This document details the technical requirements for Phase 1, using **Firebase**
             }
           }
         },
-        "userPreferences": { 
+        "userPreferences": {
           "$uid": {
             "dailyImageEnabled": true,
             "featuredAnimalProfileIds": ["$profileId1", "$profileId2"]
           }
         },
-        "dailyImages": { 
+        "dailyImages": {
           "$uid": {
-            "YYYY-MM-DD": { 
+            "YYYY-MM-DD": {
                "theme": "National Squirrel Day",
                "imageUrl": "...",
                "createdAt": 1678888000000

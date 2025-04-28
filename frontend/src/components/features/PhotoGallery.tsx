@@ -1,103 +1,94 @@
-import React, { useState, Dispatch, SetStateAction } from 'react';
+import React, { useState } from 'react';
 import { useAnimalPhotos } from '../../hooks/useAnimalPhotos';
-import { Card } from '../common/Card';
-import { AnimalPhotoItem } from './AnimalPhotoItem';
-import { PhotoUploader } from './PhotoUploader';
-import { useAuth } from '../../contexts/AuthContext';
-import { getDatabase, ref as dbRef, remove } from 'firebase/database';
-import { getStorage, ref as storageRef, deleteObject } from 'firebase/storage';
+import { PhotoThumbnail } from '../common/PhotoThumbnail';
+import { Spinner } from '../common/Spinner';
+import { Button } from '../common/Button';
+import { TrashIcon } from '@heroicons/react/24/solid';
+import { AnimalPhoto } from '../../types/AnimalPhoto';
 
-interface PhotoGalleryProps {
+interface MiniPhotoGalleryProps {
   profileId: string;
   profileName: string;
   selectedPhotoId: string | null;
-  onSelectPhoto: Dispatch<SetStateAction<string | null>>;
+  onPhotoSelect: (profileId: string, photoId: string) => void;
+  onDeletePhoto: (input: { profileId: string; photoId: string; storagePath: string }) => Promise<boolean>;
 }
 
-export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ 
-  profileId, 
-  profileName, 
-  selectedPhotoId,
-  onSelectPhoto
+/**
+ * A simplified gallery specifically for displaying thumbnails
+ * within the SelectedPhotosPanel, handling selection and deletion.
+ */
+export const MiniPhotoGallery: React.FC<MiniPhotoGalleryProps> = ({
+    profileId,
+    profileName,
+    selectedPhotoId,
+    onPhotoSelect,
+    onDeletePhoto
 }) => {
   const { photos, loading, error } = useAnimalPhotos(profileId);
-  const { currentUser } = useAuth();
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const handlePhotoDelete = async (photoId: string, storagePath: string) => {
-    if (!currentUser) {
-      setDeleteError('User not authenticated.');
-      return;
-    }
+  const handleDeleteClick = async (e: React.MouseEvent, photo: AnimalPhoto) => {
+    e.stopPropagation();
+    setDeletingPhotoId(photo.id);
     setDeleteError(null);
-    if (selectedPhotoId === photoId) {
-      onSelectPhoto(null);
+
+    const success = await onDeletePhoto({
+        profileId: profileId,
+        photoId: photo.id,
+        storagePath: photo.storagePath
+    });
+
+    if (!success) {
+      setDeleteError("Failed to delete photo.");
     }
-    console.log(`Attempting to delete photo: ${photoId}, path: ${storagePath}`);
-    const storage = getStorage();
-    const imageRef = storageRef(storage, storagePath);
-    try {
-      await deleteObject(imageRef);
-      console.log(`Deleted from Storage: ${storagePath}`);
-    } catch (err: any) {
-      console.error("Error deleting photo from Storage:", err);
-      if (err.code !== 'storage/object-not-found') {
-        setDeleteError(`Failed to delete photo file: ${err.message}`);
-        return;
-      }
-    }
-    const db = getDatabase();
-    const photoDbRef = dbRef(db, `profiles/${currentUser.uid}/${profileId}/photos/${photoId}`);
-    try {
-      await remove(photoDbRef);
-      console.log(`Deleted from Database: profiles/.../${profileId}/photos/${photoId}`);
-    } catch (err) {
-      console.error("Error deleting photo metadata from Database:", err);
-      setDeleteError(`Failed to delete photo data: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
+    setDeletingPhotoId(null);
   };
 
-  const handlePhotoSelect = (photoId: string) => {
-    onSelectPhoto((prevSelectedId) => (prevSelectedId === photoId ? null : photoId));
-    console.log("Selected photo (in Gallery):", photoId === selectedPhotoId ? null : photoId);
-  };
-
-  const renderGalleryContent = () => {
-    if (loading) {
-      return <p className="text-center text-gray-500 dark:text-gray-400">Loading photos...</p>;
-    }
-    if (error) {
-      return <p className="text-center text-red-500">Error loading photos: {error.message}</p>;
-    }
-    if (photos.length === 0 && !loading) {
-      return <p className="text-center text-gray-500 dark:text-gray-400 mt-3">No photos uploaded for this profile yet.</p>;
-    }
-
+  if (loading) {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-3 mt-3">
-        {photos.map((photo) => (
-          <AnimalPhotoItem
-            key={photo.id}
-            photo={photo}
-            onDelete={handlePhotoDelete}
-            isSelected={selectedPhotoId === photo.id}
-            onClick={handlePhotoSelect}
-          />
-        ))}
-      </div>
+        <div className="flex justify-center items-center h-20">
+             <Spinner />
+        </div>
     );
-  };
+  }
+
+  if (error) {
+    return <p className="text-center text-red-500 text-xs px-1">Error: {error}</p>;
+  }
+
+  if (photos.length === 0) {
+    return <p className="text-xs text-gray-400 italic px-1">No photos yet.</p>;
+  }
 
   return (
-    <Card className="w-full mb-4">
-      <h3 className="text-lg sm:text-xl font-semibold mb-3 text-gray-700 dark:text-gray-200">
-        Photos for: <span className="text-indigo-600 dark:text-indigo-400">{profileName}</span>
-      </h3>
-      {deleteError && (
-        <p className="mb-3 text-center text-red-600 bg-red-100 dark:bg-red-900 dark:text-red-300 p-2 rounded text-sm">Error deleting photo: {deleteError}</p>
-      )}
-      <PhotoUploader profileId={profileId} />
-      {renderGalleryContent()}
-    </Card>
+    <div className="grid grid-cols-3 gap-1 p-1">
+      {deleteError && <p className="col-span-3 text-xs text-red-500 text-center mb-1">{deleteError}</p>}
+      {photos.map((photo) => {
+        const isDeletingThis = deletingPhotoId === photo.id;
+        return (
+          <div key={photo.id} className="relative group">
+            <PhotoThumbnail
+              storagePath={photo.storagePath}
+              altText={`Photo for ${profileName}`}
+              className={`w-full aspect-square object-cover rounded cursor-pointer border-2 ${isDeletingThis ? 'opacity-50' : ''} ${selectedPhotoId === photo.id ? 'border-sky-500 ring-4 ring-sky-300' : 'border-transparent hover:border-gray-400'}`}
+              onClick={() => !isDeletingThis && onPhotoSelect(profileId, photo.id)}
+            />
+            <Button
+                variant="danger"
+                size="sm"
+                className="absolute top-0.5 right-0.5 p-0.5 !rounded-full opacity-0 group-hover:opacity-80 hover:!opacity-100 transition-opacity focus:opacity-100"
+                onClick={(e) => handleDeleteClick(e, photo)}
+                disabled={isDeletingThis}
+                aria-label="Delete photo"
+                title="Delete photo"
+            >
+                {isDeletingThis ? <Spinner/> : <TrashIcon className="w-3 h-3" />}
+            </Button>
+          </div>
+        )
+      })}
+    </div>
   );
-}; 
+};

@@ -51,10 +51,10 @@ export const AddAnimalProfileForm: React.FC = () => {
           disabled={isAdding || !name.trim()}
           className="w-full sm:w-auto"
         >
-          {isAdding ? 'Adding...' : 'Add Profile'}
+          {isAdding ? 'Adding...' : 'Add'}
         </Button>
       </div>
       {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
     </form>
   );
-}; 
+};

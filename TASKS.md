@@ -63,9 +63,6 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
   - [x] Move Firebase config from `firebase.ts` to `.env` file using Vite prefixes.
   - [x] Add `.env.example` template.
   - [x] Update `.gitignore` to ignore `frontend/.env`.
-
-## In Progress Tasks
-
 - [x] **Implement Image Generation Cloud Function (`generateImage`)**
   - [x] Setup Cloud Function project (`functions/src/index.ts`).
   - [x] Add necessary dependencies (`firebase-admin`, `firebase-functions`, `openai`).
@@ -75,15 +72,20 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
     - [x] Retrieve *multiple* photo details (name, path) from Firebase **Realtime Database** based on `selections`.
     - [x] Formulate a combined text prompt incorporating selected animals (by name) and user input.
     - [x] **Call OpenAI `gpt-image-1` API** (manage API key via `.env` -> `process.env.OPENAI_API_KEY`).
-      - Use official `openai` Node.js library (`openai.images.generate`).
+      - Use official `openai` Node.js library (`openai.images.edit`).
       - Specify `model: "gpt-image-1"`.
-      - Pass `prompt`, `n: 1`, `size: "1024x1024"`, `quality: "high"`.
+      - Pass `prompt`, `n: 1`, `size: "1024x1024"`.
       - Pass `user: uid` for monitoring (as per OpenAI docs).
-      - *Note:* Do not use `response_format: "url"` (caused errors with this model).
+      - Avoid using `response_format` parameter with `gpt-image-1` model.
     - [x] Handle OpenAI response/errors (check for data, parse error messages).
     - [x] **Store generated image metadata** in Realtime Database (`/generatedImages/{uid}`).
     - [x] Return generated image URL (currently the direct OpenAI URL).
-  - [ ] Implement basic rate limiting (e.g., using **Realtime Database** to track user generations).
+  - [x] Increase function timeout to handle longer image generation requests.
+  - [x] Fix client-side timeout to match function timeout.
+  - [x] Ensure proper CORS handling by explicitly configuring region.
+
+## In Progress Tasks
+
 - [ ] **Implement Image Generation Frontend Integration** (Continued)
   - [ ] UI Component: Display generated image from URL.
   - [ ] UI Component: Download button for generated image.
@@ -92,6 +94,11 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
   - [ ] Apply playful & simple theme based on `UI.md` using Tailwind.
   - [ ] Add loading indicators and error handling feedback (for Firebase operations & Function calls).
   - [ ] Ensure copy and visual tone align with the dual mission of fun creativity and animal welfare/conservation support.
+- [ ] **Implement Rate Limiting**
+  - [ ] Basic rate limiting (e.g., using **Realtime Database** to track user generations).
+
+## Future Tasks
+
 - [ ] **Testing**
   - [ ] Write basic tests for Cloud Functions (using emulators/mocks).
   - [ ] Write basic frontend component tests.
@@ -103,26 +110,25 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
 
 ## Implementation Plan (Revised)
 
-1.  **Firebase Setup:** Create project, initialize locally (**Database**, Functions, Storage, Hosting, Emulators), configure basic security rules.
-2.  **Authentication:** Implement frontend anonymous login using Firebase Auth SDK.
-3.  **Core Realtime Database/Storage CRUD:** Implement frontend UI and logic for creating/reading/deleting Animal Profiles and Photos (direct SDKs).
-4.  **Refactor Generation Flow:** Modify frontend state (`App.tsx`), profile selection (`AnimalProfileList`), photo selection (`SelectedPhotosPanel`, `PhotoThumbnail`), and generation panel (`ImageGenerationPanel`) for multi-select UX.
-5.  **Cloud Function:** Implement the `generateImage` Cloud Function, adapting it to handle multiple inputs.
-6.  **Refinement & Styling:** Apply theme, add loading/error states, ensure responsiveness and brand alignment.
+1.  **Firebase Setup:** Create project, initialize locally (**Database**, Functions, Storage, Hosting, Emulators), configure basic security rules. ✅
+2.  **Authentication:** Implement frontend anonymous login using Firebase Auth SDK. ✅
+3.  **Core Realtime Database/Storage CRUD:** Implement frontend UI and logic for creating/reading/deleting Animal Profiles and Photos (direct SDKs). ✅
+4.  **Refactor Generation Flow:** Modify frontend state (`App.tsx`), profile selection (`AnimalProfileList`), photo selection (`SelectedPhotosPanel`, `PhotoThumbnail`), and generation panel (`ImageGenerationPanel`) for multi-select UX. ✅
+5.  **Cloud Function:** Implement the `generateImage` Cloud Function, adapting it to handle multiple inputs. ✅
+6.  **Refinement & Styling:** Apply theme, add loading/error states, ensure responsiveness and brand alignment. **⏳ In Progress**
 7.  **Testing & Deployment:** Write tests, deploy rules, functions, and hosting.
 
 ### Relevant Files
 
-*(To be populated as development progresses)*
-- `PRD.md` - Product Requirements Document
-- `SOFTWARE.md` - Software Requirements Specification
-- `UI.md` - User Interface Description Document
-- `README.md` - Project Overview
-- `TASKS.md` - Implementation Tasks (this file)
+- `PRD.md` - Product Requirements Document ✅
+- `SOFTWARE.md` - Software Requirements Specification ✅
+- `UI.md` - User Interface Description Document ✅
+- `README.md` - Project Overview ✅
+- `TASKS.md` - Implementation Tasks (this file) ✅
 - `frontend/` - React application code
   - `frontend/src/App.tsx` - Main application component, orchestrates multi-select profile/photo view ✅ (Refactored)
   - `frontend/src/main.tsx` - Application entry point, wraps App with AuthProvider ✅
-  - `frontend/src/firebase.ts` - Firebase configuration and initialization ✅ (Uses .env)
+  - `frontend/src/firebase.ts` - Firebase configuration and initialization ✅ (Uses .env, explicit region)
   - `frontend/.env` - Firebase configuration values (Gitignored) ✅
   - `frontend/.env.example` - Template for Firebase environment variables ✅ (New)
   - `frontend/src/contexts/AuthContext.tsx` - React context for authentication state ✅
@@ -130,6 +136,7 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
   - `frontend/src/types/AnimalPhoto.ts` - TypeScript type for Animal Photo ✅
   - `frontend/src/hooks/useAnimalProfiles.ts` - Hook for fetching and managing animal profiles ✅
   - `frontend/src/hooks/useAnimalPhotos.ts` - Hook for fetching photos for a profile ✅
+  - `frontend/src/hooks/useImageGeneration.ts` - Hook for calling the image generation function ✅ (With extended timeout)
   - `frontend/src/components/features/AnimalProfileList.tsx` - Component to display/select/delete animal profiles ✅ (Refactored for multi-select)
   - `frontend/src/components/features/AddAnimalProfileForm.tsx` - Component to add new animal profiles ✅ (Responsiveness improved)
   - `frontend/src/components/features/PhotoGallery.tsx` - Component to display photos for selected profile ✅ (Responsiveness improved) - *Role may change*
@@ -142,12 +149,15 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
   - `frontend/src/components/common/Input.tsx` - Reusable Input component ✅
   - `frontend/src/components/common/PhotoThumbnail.tsx` - Component to display image from storage path ✅ (New)
 - `functions/` - Firebase Cloud Functions code
-- `firestore.rules` - Firestore security rules
-- `database.rules.json` - **Realtime Database** security rules
+  - `functions/src/generateImage.ts` - Image generation function ✅ (With extended timeout)
+  - `functions/src/deletePhoto.ts` - Photo deletion function ✅
+  - `functions/src/getImageHistory.ts` - Function to fetch generated image history ✅
+  - `functions/.eslintrc.js` - ESLint configuration for functions ✅ (Updated for compatibility)
+- `database.rules.json` - **Realtime Database** security rules ✅
 - `storage.rules` - Cloud Storage security rules ✅ (Path fixed)
-- `firebase.json` - Firebase project configuration
-- `.firebaserc` - Firebase project alias configuration
-- `package.json` - Root package file (for scripts like `npm run dev`)
+- `firebase.json` - Firebase project configuration ✅
+- `.firebaserc` - Firebase project alias configuration ✅
+- `package.json` - Root package file (for scripts like `npm run dev`) ✅
 - `.gitignore` - Specifies intentionally untracked files ✅ (Updated)
 - `cors.json` - Configuration for Cloud Storage CORS ✅ (New)
 
@@ -211,4 +221,4 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
   - [ ] Scalable infrastructure design (load balancing, DB scaling, etc.).
   - [ ] Comprehensive testing (end-to-end, performance).
   - [ ] Security hardening.
-  - [ ] CI/CD pipeline automation. 
+  - [ ] CI/CD pipeline automation.
