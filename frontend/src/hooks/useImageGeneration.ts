@@ -17,7 +17,7 @@ interface GenerateImageOutput {
 }
 
 // Define types for the history data with requestId
-interface HistoryImageData { 
+interface HistoryImageData {
     imageUrl: string;
     createdAt: number;
     requestId: string; // Added request ID
@@ -43,7 +43,6 @@ export function useImageGeneration(): UseImageGenerationReturn {
   useEffect(() => {
     if (!currentUser) return; // No listener if no user
 
-    console.log("Setting up RTDB listener for latest generated image...");
     const db = getDatabase();
     const recentImageQuery = query(
       ref(db, `generatedImages/${currentUser.uid}`),
@@ -51,7 +50,7 @@ export function useImageGeneration(): UseImageGenerationReturn {
       limitToLast(1)
     );
 
-    let initialDataLoaded = false; 
+    let initialDataLoaded = false;
 
     const unsubscribe = onValue(recentImageQuery, (snapshot) => {
       if (!snapshot.exists()) {
@@ -59,28 +58,27 @@ export function useImageGeneration(): UseImageGenerationReturn {
          initialDataLoaded = true;
          return;
       }
-      
+
       const images = snapshot.val();
-      const imageKey = Object.keys(images)[0]; 
+      const imageKey = Object.keys(images)[0];
       const latestImage = images[imageKey] as HistoryImageData;
-      console.log("RTDB listener received:", latestImage);
       console.log("Current request ID ref:", currentRequestIdRef.current);
 
       if (!initialDataLoaded) {
           initialDataLoaded = true;
-          if (isGenerating && currentRequestIdRef.current) { 
+          if (isGenerating && currentRequestIdRef.current) {
               console.log("Listener attached during active generation, ignoring initial data.");
               return;
-          } 
+          }
       }
 
       // Check if this image corresponds to the request we are waiting for
       if (latestImage.requestId && latestImage.requestId === currentRequestIdRef.current) {
           console.log(`RTDB listener: Match found for request ID: ${latestImage.requestId}`);
           setGeneratedImageUrl(latestImage.imageUrl);
-          setGenerationError(null); 
-          setIsGenerating(false); 
-          currentRequestIdRef.current = null; 
+          setGenerationError(null);
+          setIsGenerating(false);
+          currentRequestIdRef.current = null;
       }
        else {
             // Handle potential recovery on initial load if image is very recent
@@ -97,7 +95,6 @@ export function useImageGeneration(): UseImageGenerationReturn {
 
     // Cleanup function
     return () => {
-      console.log("Detaching RTDB listener.");
       off(recentImageQuery, 'value', unsubscribe);
     };
   }, [currentUser]); // Rerun listener setup if user changes
@@ -117,16 +114,16 @@ export function useImageGeneration(): UseImageGenerationReturn {
     if (!currentUser) { setGenerationError("Auth required."); setIsGenerating(false); currentRequestIdRef.current = null; return; }
     if (input.selections.length === 0) { setGenerationError("Selection required."); setIsGenerating(false); currentRequestIdRef.current = null; return; }
     if (!input.style && !input.prompt) { setGenerationError("Style or prompt required."); setIsGenerating(false); currentRequestIdRef.current = null; return; }
-    
+
     console.log(`Calling generateImage function with reqId: ${requestId}`, input);
-    
+
     try {
       const functions = getFunctions();
       // Ensure type includes requestId for the call
       const generateImageFunction = httpsCallable<GenerateImageInput & { requestId: string }, GenerateImageOutput>(
         functions, 'generateImage', { timeout: 540000 }
       );
-      
+
       // Include requestId in the payload
       const result = await generateImageFunction({ ...input, requestId });
       console.log(`Direct function call successful for reqId: ${requestId}`, result.data);
@@ -146,19 +143,19 @@ export function useImageGeneration(): UseImageGenerationReturn {
          if (err instanceof FunctionsError) {
              const techDetails = `(code: ${err.code}${err.details ? ", details: " + JSON.stringify(err.details) : ""})`;
              if (err.code === 'internal') {
-                 finalErrorMessage = `Internal error during generation. Check gallery. ${techDetails}`; 
-             } else { 
+                 finalErrorMessage = `Internal error during generation. Check gallery. ${techDetails}`;
+             } else {
                  finalErrorMessage = `${err.message} ${techDetails}`.trim();
              }
          } else if (err instanceof Error) {
              finalErrorMessage = err.message;
          }
          setGenerationError(finalErrorMessage);
-         setGeneratedImageUrl(null); 
+         setGeneratedImageUrl(null);
          // Keep ref set; listener might still succeed
          setIsGenerating(false); // Stop loading on error
       }
-    } 
+    }
     // No finally block setting isGenerating=false; listener handles it on success, catch handles it on failure.
   }, [currentUser]);
 

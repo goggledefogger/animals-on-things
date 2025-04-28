@@ -56,7 +56,7 @@ This document outlines the user interface design for the Animals-On-Things appli
 -   **Accessibility**
     -   Adhere to basic accessibility principles (sufficient color contrast, semantic HTML, keyboard navigability, descriptive labels for inputs/buttons).
     -   Alt text considerations for uploaded and generated images.
-    -   Ensure **Animal Profile** and Photo management actions are accessible. 
+    -   Ensure **Animal Profile** and Photo management actions are accessible.
 
 ## Future Phase UI Elements (Examples)
 
@@ -68,4 +68,4 @@ This document outlines the user interface design for the Animals-On-Things appli
     -   **Display Area:** A dedicated section on the dashboard or main page to prominently display the latest daily generated image, perhaps with the date/theme.
     -   **History View:** A gallery or list view to browse past daily generated images.
 -   **(Phase 3) Charity Support:** UI elements indicating donation amounts/partners during checkout or on relevant pages.
--   **(Phase 3) Community:** User profiles, public galleries, like/comment buttons/feeds. 
+-   **(Phase 3) Community:** User profiles, public galleries, like/comment buttons/feeds.
