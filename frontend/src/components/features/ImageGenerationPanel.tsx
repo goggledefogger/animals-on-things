@@ -16,25 +16,26 @@ interface ImageGenerationPanelProps {
 
 // TODO: Define styles in a configuration file or fetch dynamically?
 const PREDEFINED_STYLES = [
+  'None',
+  'Realistic',
   'Comic Book', 'Watercolor', 'Pixel Art', 'Jungle', 'Space', 'Cozy'
 ];
 
 export const ImageGenerationPanel: React.FC<ImageGenerationPanelProps> = ({ selections }) => {
-  const [selectedStyle, setSelectedStyle] = useState<string | null>(PREDEFINED_STYLES[0]);
+  const [selectedStyle, setSelectedStyle] = useState<string | null>('None');
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const { generateImage, isGenerating, generatedImageUrl, generationError } = useImageGeneration();
 
   const canGenerate = selections.length > 0;
 
   const handleGenerateClick = () => {
-    // Backend expects a style, use "custom" as placeholder if only prompt is provided
-    const styleToSend = selectedStyle || "custom";
+    const styleToSend = selectedStyle;
     const promptToSend = customPrompt.trim() || null;
 
-    if (canGenerate && (selectedStyle || promptToSend)) {
+    if (canGenerate && (styleToSend || promptToSend)) {
       generateImage({ selections, style: styleToSend, prompt: promptToSend });
     } else {
-      console.warn("Generation trigger conditions not met (requires selections and style/prompt).");
+      console.warn("Generation trigger conditions not met.");
     }
   };
 

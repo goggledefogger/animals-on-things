@@ -17,11 +17,10 @@ export interface SelectedPhotoMap {
   [profileId: string]: string | null; // Maps profile ID to selected Photo ID (or null)
 }
 
-// Define and export the type for the workspace context (can be expanded later)
+// Simplify WorkspaceContext type
 export type WorkspaceContext =
   | null
-  | { type: 'generation_setup', selectedProfiles: AnimalProfile[], selectedPhotoMap: SelectedPhotoMap }
-  | { type: 'viewing_details', profile: AnimalProfile }; // Add viewing_details case
+  | { type: 'generation_setup', selectedProfiles: AnimalProfile[], selectedPhotoMap: SelectedPhotoMap };
 
 // Define input type for the delete handler (matches hook input)
 interface DeletePhotoInput {
@@ -33,60 +32,65 @@ interface DeletePhotoInput {
 function App() {
   const { currentUser, loading } = useAuth();
   const [workspaceContext, setWorkspaceContext] = useState<WorkspaceContext>(null);
-  // Centralized state for selected profiles for generation
   const [selectedProfiles, setSelectedProfiles] = useState<AnimalProfile[]>([]);
-  // State to map selected profile IDs to their chosen photo ID for generation
   const [selectedPhotoMap, setSelectedPhotoMap] = useState<SelectedPhotoMap>({});
-  // Access animal profiles functionality
   const { profiles, loading: profilesLoading, error: profilesError, deleteProfile } = useAnimalProfiles();
-
-  // Initialize the deletion hook
   const { deletePhoto, deletionError } = usePhotoDeletion();
 
-  // Handler for toggling profile selection - lives in App now
+  // Refactor toggle handler for clarity and direct context setting
   const handleProfileSelectToggle = useCallback((profile: AnimalProfile) => {
-    let newSelectedProfiles: AnimalProfile[];
-    const newPhotoMap: SelectedPhotoMap = { ...selectedPhotoMap }; // Start with current map
+    let nextSelectedProfiles: AnimalProfile[];
+    let nextPhotoMap: SelectedPhotoMap;
 
-    setSelectedProfiles(prevSelected => {
-      const isSelected = prevSelected.some(p => p.id === profile.id);
-      if (isSelected) {
-        newSelectedProfiles = prevSelected.filter(p => p.id !== profile.id);
-        // Remove from photo map if deselecting
-        delete newPhotoMap[profile.id];
-      } else {
-        newSelectedProfiles = [...prevSelected, profile];
-        // Add to photo map with null selection initially
-        newPhotoMap[profile.id] = newPhotoMap[profile.id] || null;
-      }
-      // Update the photo map state
-      setSelectedPhotoMap(newPhotoMap);
-      // Update context immediately based on the new selection
-      if (newSelectedProfiles.length > 0) {
-          setWorkspaceContext({ type: 'generation_setup', selectedProfiles: newSelectedProfiles, selectedPhotoMap: newPhotoMap });
-      } else {
-          setWorkspaceContext(null); // Revert to default if none selected
-      }
-      return newSelectedProfiles;
-    });
-  }, [selectedPhotoMap]); // Depend on photo map
+    // Determine next state based on current state
+    const isCurrentlySelected = selectedProfiles.some(p => p.id === profile.id);
+    if (isCurrentlySelected) {
+      nextSelectedProfiles = selectedProfiles.filter(p => p.id !== profile.id);
+      nextPhotoMap = { ...selectedPhotoMap };
+      delete nextPhotoMap[profile.id];
+    } else {
+      nextSelectedProfiles = [...selectedProfiles, profile];
+      // Ensure entry exists in map, default to null if needed
+      nextPhotoMap = { ...selectedPhotoMap, [profile.id]: selectedPhotoMap[profile.id] || null }; 
+    }
+
+    // Update the primary states
+    setSelectedProfiles(nextSelectedProfiles);
+    setSelectedPhotoMap(nextPhotoMap);
+
+    // Directly set the context based on the *result* of the selection update
+    if (nextSelectedProfiles.length > 0) {
+      setWorkspaceContext({ 
+        type: 'generation_setup', 
+        selectedProfiles: nextSelectedProfiles, 
+        selectedPhotoMap: nextPhotoMap 
+      });
+    } else {
+      setWorkspaceContext(null); // Clear context if no profiles are selected
+    }
+  }, [selectedProfiles, selectedPhotoMap]); // Dependencies include states used for calculation
 
   // Handler for selecting a specific photo for a profile *during generation setup*
   const handlePhotoSelectForGeneration = useCallback((profileId: string, photoId: string | null) => {
+    // Only update map if profile is actually selected
     if (selectedProfiles.some(p => p.id === profileId)) {
       const newPhotoMap = { ...selectedPhotoMap, [profileId]: photoId };
       setSelectedPhotoMap(newPhotoMap);
-      // Update context ONLY if already in generation setup
+      // Also update the context *if* it's currently generation_setup
       setWorkspaceContext(prevContext => {
         if (prevContext?.type === 'generation_setup') {
-          return { ...prevContext, selectedPhotoMap: newPhotoMap };
+          // Make sure selectedProfiles is also up-to-date in the context 
+          // (though it should be, this ensures consistency)
+          return { 
+              type: 'generation_setup', 
+              selectedProfiles: selectedProfiles, // Use current selectedProfiles state
+              selectedPhotoMap: newPhotoMap 
+          };
         }
-        return prevContext;
+        return prevContext; // Don't change context if not in generation setup
       });
-    } else {
-      console.warn("Attempted to select photo for a profile not selected for generation");
     }
-  }, [selectedProfiles, selectedPhotoMap]); // Depend on selectedProfiles and map
+  }, [selectedProfiles, selectedPhotoMap]); // Added selectedProfiles dependency
 
   // Implement the photo deletion handler
   const handleDeletePhoto = useCallback(async (input: DeletePhotoInput): Promise<boolean> => {
@@ -111,35 +115,30 @@ function App() {
     return success;
   }, [deletePhoto, selectedPhotoMap, handlePhotoSelectForGeneration, deletionError]); // Add dependencies
 
-  // Profile detail view handler
-  const handleViewProfileDetails = useCallback((profileId: string) => {
-    const profile = profiles.find(p => p.id === profileId);
-    if (profile) {
-      setWorkspaceContext({
-        type: 'viewing_details',
-        profile: profile,
-      });
-    }
-  }, [profiles]);
-
   // Handler for profile deletion
   const handleDeleteProfile = useCallback((profileId: string) => {
-    // Remove from selected profiles if needed
-    const isSelected = selectedProfiles.some(p => p.id === profileId);
-    if (isSelected) {
-      setSelectedProfiles(prev => prev.filter(p => p.id !== profileId));
+    // Update selected profiles and map first
+    const nextSelectedProfiles = selectedProfiles.filter(p => p.id !== profileId);
+    const nextPhotoMap = { ...selectedPhotoMap };
+    delete nextPhotoMap[profileId];
+    
+    setSelectedProfiles(nextSelectedProfiles);
+    setSelectedPhotoMap(nextPhotoMap);
 
-      // Also remove from photo map
-      setSelectedPhotoMap(prev => {
-        const newMap = { ...prev };
-        delete newMap[profileId];
-        return newMap;
+    // Update context based on the new state
+    if (nextSelectedProfiles.length > 0) {
+      setWorkspaceContext({ 
+          type: 'generation_setup', 
+          selectedProfiles: nextSelectedProfiles, 
+          selectedPhotoMap: nextPhotoMap 
       });
+    } else {
+      setWorkspaceContext(null);
     }
 
-    // Call the delete function from the hook
+    // Call the actual delete function from the hook
     deleteProfile(profileId);
-  }, [selectedProfiles, deleteProfile]);
+  }, [selectedProfiles, selectedPhotoMap, deleteProfile]); // Added selectedPhotoMap dependency
 
   // Helper function for NavLink className
   const getNavLinkClass = ({ isActive }: { isActive: boolean }): string => {
@@ -190,7 +189,6 @@ function App() {
                     selectedProfiles={selectedProfiles}
                     onSelectProfileToggle={handleProfileSelectToggle}
                     onDelete={handleDeleteProfile}
-                    handleViewDetails={handleViewProfileDetails}
                     loading={profilesLoading}
                     error={profilesError || undefined}
                   />

@@ -15,7 +15,7 @@ interface DeletePhotoInput {
 interface SelectedPhotosPanelProps {
   selectedProfiles: AnimalProfile[];
   selectedPhotoMap: SelectedPhotoMap;
-  onPhotoSelect: (profileId: string, photoId: string) => void;
+  onPhotoSelect: (profileId: string, photoId: string | null) => void;
   onDeletePhoto: (input: DeletePhotoInput) => Promise<boolean>;
 }
 

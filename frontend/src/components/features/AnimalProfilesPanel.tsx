@@ -10,7 +10,7 @@ interface AnimalProfilesPanelProps {
   selectedProfiles: AnimalProfile[];
   onSelectProfileToggle: (profile: AnimalProfile) => void;
   onDelete: (profileId: string) => void;
-  handleViewDetails: (profileId: string) => void;
+  // handleViewDetails: (profileId: string) => void; // This prop is no longer used or passed
   loading?: boolean;
   error?: string;
 }
@@ -20,7 +20,7 @@ export default function AnimalProfilesPanel({
   selectedProfiles,
   onSelectProfileToggle,
   onDelete,
-  handleViewDetails,
+  // handleViewDetails, // Already removed from usage
   loading,
   error,
 }: AnimalProfilesPanelProps) {
@@ -51,7 +51,6 @@ export default function AnimalProfilesPanel({
                   isSelected={isSelected}
                   onSelectToggle={onSelectProfileToggle}
                   onDelete={handleDelete}
-                  onViewDetails={handleViewDetails}
                 />
               );
             })}

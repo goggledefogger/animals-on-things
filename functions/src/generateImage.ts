@@ -17,6 +17,7 @@ interface GenerateImageRequestData {
   style: string;
   prompt?: string;
   model?: string; // Optional model override (defaults to gpt-image-1)
+  requestId?: string;
 }
 
 // Type for the shape of data read from RTDB for photos
@@ -62,13 +63,14 @@ export const generateImage = functions
   const uid = context.auth.uid;
 
   // 2. Input Validation
-  const {selections, style, prompt} = data;
-  const modelToUse = data.model || "gpt-image-1"; // Default to gpt-image-1 for edits
+  const {selections, style, prompt, requestId, model } = data; 
+  const modelToUse = model || "gpt-image-1"; // Use provided model or default
 
-  if (!style || !selections || !Array.isArray(selections) || selections.length === 0) {
+  // Allow generation if style is null but prompt exists
+  if ((!style && !prompt) || !selections || !Array.isArray(selections) || selections.length === 0 || !requestId) {
     throw new HttpsError(
       "invalid-argument",
-      "Missing required fields: style and selections (array of {profileId, photoId}).",
+      "Missing required fields: (style or prompt), selections (array), and requestId.",
     );
   }
   if (selections.some((sel) => !sel.profileId || !sel.photoId)) {
@@ -148,8 +150,33 @@ export const generateImage = functions
     .map((p) => p.profileName || `animal from profile ${p.profileId.substring(0, 4)}`)
     .join(", "); // e.g., "Sparky, Luna"
 
-  const combinedPrompt = `Create an image in a ${style} style featuring ${animalDescriptions}. ${prompt || ""}`.trim();
-  functions.logger.info(`Constructed AI Prompt: ${combinedPrompt}`, {uid});
+  // Construct the prompt based on style and custom input
+  let stylePhrase = "";
+  if (style && style !== 'None') { // Only add style phrase if style is present and not 'None'
+    if (style === 'Realistic') {
+        stylePhrase = "in a photorealistic style";
+    } else {
+        // For other styles like "Comic Book", "Watercolor", etc.
+        stylePhrase = `in a ${style} style`; 
+    }
+  }
+
+  // Combine parts, ensuring spaces are handled correctly
+  const promptParts = [];
+  promptParts.push("Create an image");
+  if (stylePhrase) {
+      promptParts.push(stylePhrase);
+  }
+  promptParts.push(`featuring ${animalDescriptions}`);
+  if (prompt) { // Add custom prompt if provided
+      const punctuationRegex = /[.!?]$/;
+      const separator = punctuationRegex.test(animalDescriptions) ? " " : ". ";
+      promptParts.push(separator + prompt); 
+  }
+  // Ensure prompt ends with a period unless it already has ending punctuation
+  const combinedPrompt = promptParts.join(" ").trim().replace(/\.$/, "") + "."; 
+
+  functions.logger.info(`Constructed AI Prompt: ${combinedPrompt}`, {uid, reqId: requestId}); // Added requestId to log
 
   // 5. Call OpenAI Image Edit API
   let generatedImageBase64: string | undefined;

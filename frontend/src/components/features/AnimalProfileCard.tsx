@@ -8,17 +8,17 @@ interface AnimalProfileCardProps {
   profile: AnimalProfile;
   isSelected: boolean;
   onSelectToggle: (profile: AnimalProfile) => void; // For selecting for generation
-  onViewDetails: (profileId: string) => void; // For viewing details in workspace
   onDelete: (profileId: string) => void;
-  // isDeleting?: boolean; // Optional: To show loading state on delete button
+  // onViewDetails?: (profileId: string) => void; // Removed this unused prop
+  // isDeleting?: boolean; 
 }
 
 export const AnimalProfileCard: React.FC<AnimalProfileCardProps> = ({
   profile,
   isSelected,
   onSelectToggle,
-  onViewDetails,
   onDelete,
+  // onViewDetails, // Removed
   // isDeleting = false,
 }) => {
   const handleDeleteClick = (e: React.MouseEvent) => {
@@ -29,9 +29,8 @@ export const AnimalProfileCard: React.FC<AnimalProfileCardProps> = ({
   };
 
   const handleCardClick = () => {
-    onSelectToggle(profile);
-    // Also show details when clicking the card
-    onViewDetails(profile.id);
+    // Removed onViewDetails call, just toggle selection
+    onSelectToggle(profile); 
   };
 
   return (
