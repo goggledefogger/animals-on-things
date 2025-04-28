@@ -28,10 +28,7 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
   - [x] Created root `package.json`.
   - [x] Installed `concurrently`.
   - [x] Added `npm run dev` script to start emulators and frontend.
-- [x] **Implement Anonymous Authentication (Frontend)**
-  - [x] Integrate Firebase SDK into the React app (`npm install firebase`, `src/firebase.ts`).
-  - [x] Implement logic to sign in user anonymously on app load (`frontend/src/App.tsx`).
-  - [x] Manage and provide user state (`uid`) to components (via `AuthContext`).
+- [x] **Implement Email Link Authentication (Frontend)**
 - [x] **Implement Animal Profile Management (Frontend & Realtime Database)**
   - [x] Frontend: UI Component to display list of Animal Profiles (read from Realtime Database using `uid`).
   - [x] Frontend: UI Component to create a new Animal Profile (write to Realtime Database, associated with `uid`).
@@ -85,18 +82,31 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
   - [x] Ensure proper CORS handling by explicitly configuring region.
   - [x] Add logo image next to title text.
   - [x] Generate and integrate favicon using logo (via `/public` directory and `index.html`).
+- [x] **Implement Image History Gallery**
+  - [x] Frontend component (`ImageHistoryGallery.tsx`) to display generated images from RTDB using `useImageHistory` hook.
+  - [x] Add Download button functionality.
+  - [x] **Add Delete button functionality:** ✅
+    - [x] Created `deleteHistoryImage` Cloud Function (RTDB record + Storage file deletion).
+    - [x] Created `useImageHistoryDeletion` frontend hook.
+    - [x] Added Delete button UI and confirmation to `ImageHistoryGallery.tsx`.
+- [x] **Implement Email Link Authentication**
+  - [x] Replace Anonymous Auth with Email Link (`LoginPage.tsx`, `FinishLoginPage.tsx`).
+  - [x] Update `AuthContext` and `ProtectedRoutes`.
+  - [x] Add Sign Out button.
+  - [x] Configure Auth domain whitelisting in Firebase Console.
+  - [x] Configure email link URL via environment variables (`.env`, `.env.production`).
+- [x] **Robust Image Generation Status Handling** ✅
+  - [x] Utilize RTDB listener (`onValue` in `useImageGeneration.ts`) as the primary source of truth for generation completion, matching via `requestId`.
+  - [x] Handle specific client-side `httpsCallable` errors (`deadline-exceeded`, `unavailable`, `cancelled`, `internal`) as potentially recoverable without immediately showing a UI error, allowing the listener to confirm success.
+  - [x] Implement a client-side safety timeout (`CLIENT_SIDE_TIMEOUT_MS`) to show an error if the listener doesn't confirm success within a reasonable period.
 
 ## In Progress Tasks
 
-- [ ] **Implement Image Generation Frontend Integration** (Continued)
-  - [ ] UI Component: Display generated image from URL.
-  - [ ] UI Component: Download button for generated image.
-  - [ ] UI Component: Session gallery for recently generated images (client-side state).
-  - [x] UI Feedback: Propagate photo deletion loading/error state (`isDeletingPhoto`, `photoDeletionError`) down to `MiniPhotoGallery` for accurate button state/feedback. ✅
 - [ ] **Refinement & Styling** (Continued)
   - [ ] Apply playful & simple theme based on `UI.md` using Tailwind.
-  - [ ] Add loading indicators and error handling feedback (for Firebase operations & Function calls).
+  - [ ] Add more comprehensive loading indicators and error handling feedback (beyond current state).
   - [ ] Ensure copy and visual tone align with the dual mission of fun creativity and animal welfare/conservation support.
+  - [ ] **UI Cleanup:** Review button variants, spinner usage consistency.
 - [ ] **Implement Rate Limiting**
   - [ ] Basic rate limiting (e.g., using **Realtime Database** to track user generations).
 
@@ -114,12 +124,14 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
 ## Implementation Plan (Revised)
 
 1.  **Firebase Setup:** Create project, initialize locally (**Database**, Functions, Storage, Hosting, Emulators), configure basic security rules. ✅
-2.  **Authentication:** Implement frontend anonymous login using Firebase Auth SDK. ✅
+2.  **Authentication:** Implement frontend Email Link login using Firebase Auth SDK. ✅
 3.  **Core Realtime Database/Storage CRUD:** Implement frontend UI and logic for creating/reading/deleting Animal Profiles and Photos (direct SDKs). ✅
-4.  **Refactor Generation Flow:** Modify frontend state (`App.tsx`), profile selection (`AnimalProfileList`), photo selection (`SelectedPhotosPanel`, `PhotoThumbnail`), and generation panel (`ImageGenerationPanel`) for multi-select UX. ✅
-5.  **Cloud Function:** Implement the `generateImage` Cloud Function, adapting it to handle multiple inputs. ✅
-6.  **Refinement & Styling:** Apply theme, add loading/error states, ensure responsiveness and brand alignment. **⏳ In Progress**
-7.  **Testing & Deployment:** Write tests, deploy rules, functions, and hosting.
+4.  **Refactor Generation Flow:** Modify frontend state, profile selection, photo selection, and generation panel for multi-select UX. ✅
+5.  **Cloud Function:** Implement the `generateImage` Cloud Function. ✅
+6.  **Image History:** Implement gallery display (`ImageHistoryGallery.tsx`) and deletion (`deleteHistoryImage` function). ✅
+7.  **Robust Generation Status:** Implement listener-based status handling in `useImageGeneration.ts`. ✅
+8.  **Refinement & Styling:** Apply theme, add loading/error states, ensure responsiveness and brand alignment. **⏳ In Progress**
+9.  **Testing & Deployment:** Write tests, deploy rules, functions, and hosting.
 
 ### Relevant Files
 
@@ -129,44 +141,51 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
 - `README.md` - Project Overview ✅
 - `TASKS.md` - Implementation Tasks (this file) ✅
 - `frontend/` - React application code
-  - `frontend/src/App.tsx` - Main application component, orchestrates multi-select profile/photo view ✅ (Refactored)
+  - `frontend/src/App.tsx` - Main application component, routing, core layout ✅
   - `frontend/src/main.tsx` - Application entry point, wraps App with AuthProvider ✅
-  - `frontend/src/firebase.ts` - Firebase configuration and initialization ✅ (Uses .env, explicit region)
-  - `frontend/.env` - Firebase configuration values (Gitignored) ✅
-  - `frontend/.env.example` - Template for Firebase environment variables ✅ (New)
+  - `frontend/src/firebase.ts` - Firebase configuration and initialization ✅
+  - `frontend/.env` - Local Firebase configuration values (Gitignored) ✅
+  - `frontend/.env.production` - Production Firebase configuration values (Gitignored) ✅
+  - `frontend/.env.example` - Template for Firebase environment variables ✅
   - `frontend/src/contexts/AuthContext.tsx` - React context for authentication state ✅
   - `frontend/src/types/AnimalProfile.ts` - TypeScript type for Animal Profile ✅
   - `frontend/src/types/AnimalPhoto.ts` - TypeScript type for Animal Photo ✅
   - `frontend/src/hooks/useAnimalProfiles.ts` - Hook for fetching and managing animal profiles ✅
   - `frontend/src/hooks/useAnimalPhotos.ts` - Hook for fetching photos for a profile ✅
-  - `frontend/src/hooks/useImageGeneration.ts` - Hook for calling the image generation function ✅ (With extended timeout)
-  - `frontend/src/components/features/AnimalProfileList.tsx` - Component to display/select/delete animal profiles ✅ (Refactored for multi-select)
-  - `frontend/src/components/features/AddAnimalProfileForm.tsx` - Component to add new animal profiles ✅ (Responsiveness improved)
-  - `frontend/src/components/features/PhotoGallery.tsx` - Component to display photos for selected profile ✅ (Responsiveness improved) - *Role may change*
-  - `frontend/src/components/features/AnimalPhotoItem.tsx` - Component to display a single photo from storage ✅ - *May be replaced by PhotoThumbnail*
-  - `frontend/src/components/features/PhotoUploader.tsx` - Component to handle photo uploads ✅ (Integrated into SelectedPhotosPanel)
-  - `frontend/src/components/features/ImageGenerationPanel.tsx` - Component for image generation controls ✅ (Refactored for multi-select)
-  - `frontend/src/components/features/SelectedPhotosPanel.tsx` - Component for selecting photos per profile ✅ (New, includes Uploader)
-  - `frontend/src/components/common/Card.tsx` - Reusable Card component ✅ (Styling updated)
+  - `frontend/src/hooks/useImageGeneration.ts` - Hook for calling generation function and handling status via listener ✅
+  - `frontend/src/hooks/usePhotoDeletion.ts` - Hook for deleting animal profile photos ✅
+  - `frontend/src/hooks/useImageHistory.ts` - Hook for fetching generated image history ✅
+  - `frontend/src/hooks/useImageHistoryDeletion.ts` - Hook for deleting generated image history items ✅
+  - `frontend/src/components/auth/LoginPage.tsx` - Email link login page ✅
+  - `frontend/src/components/auth/FinishLoginPage.tsx` - Page to complete email link sign-in ✅
+  - `frontend/src/components/auth/ProtectedRoutes.tsx` - Protects routes requiring authentication ✅
+  - `frontend/src/components/features/AnimalProfilesPanel.tsx` - Panel for profile list and adding ✅
+  - `frontend/src/components/features/AnimalProfileList.tsx` - Component to display/select/delete animal profiles ✅
+  - `frontend/src/components/features/AddAnimalProfileForm.tsx` - Component to add new animal profiles ✅
+  - `frontend/src/components/features/WorkspacePanel.tsx` - Container for selection/generation panels ✅
+  - `frontend/src/components/features/SelectedPhotosPanel.tsx` - Component for selecting photos per profile ✅
+  - `frontend/src/components/features/MiniPhotoGallery.tsx` - Displays thumbnails within SelectedPhotosPanel ✅
+  - `frontend/src/components/features/PhotoUploader.tsx` - Component to handle photo uploads ✅
+  - `frontend/src/components/features/ImageGenerationPanel.tsx` - Component for image generation controls ✅
+  - `frontend/src/components/features/ImageHistoryGallery.tsx` - Component to display generated image history with download/delete ✅
+  - `frontend/src/components/common/Card.tsx` - Reusable Card component ✅
   - `frontend/src/components/common/Button.tsx` - Reusable Button component ✅
   - `frontend/src/components/common/Input.tsx` - Reusable Input component ✅
-  - `frontend/src/components/common/PhotoThumbnail.tsx` - Component to display image from storage path ✅ (New)
+  - `frontend/src/components/common/Textarea.tsx` - Reusable Textarea component ✅
+  - `frontend/src/components/common/Spinner.tsx` - Reusable Spinner component ✅
 - `functions/` - Firebase Cloud Functions code
-  - `functions/src/generateImage.ts` - Image generation function ✅ (With extended timeout)
-  - `functions/src/deletePhoto.ts` - Photo deletion function ✅
+  - `functions/src/index.ts` - Exports all cloud functions ✅
+  - `functions/src/generateImage.ts` - Image generation function ✅
+  - `functions/src/deletePhoto.ts` - Animal profile photo deletion function ✅
   - `functions/src/getImageHistory.ts` - Function to fetch generated image history ✅
-  - `functions/.eslintrc.js` - ESLint configuration for functions ✅ (Updated for compatibility)
-- `database.rules.json` - **Realtime Database** security rules ✅ (Added `.indexOn` for `generatedImages/createdAt`)
-- `storage.rules` - Cloud Storage security rules ✅ (Path fixed)
+  - `functions/src/deleteHistoryImage.ts` - Function to delete generated image history items ✅
+- `database.rules.json` - **Realtime Database** security rules ✅
+- `storage.rules` - Cloud Storage security rules ✅
 - `firebase.json` - Firebase project configuration ✅
 - `.firebaserc` - Firebase project alias configuration ✅
-- `package.json` - Root package file (for scripts like `npm run dev`) ✅
-- `.gitignore` - Specifies intentionally untracked files ✅ (Updated)
-- `cors.json` - Configuration for Cloud Storage CORS ✅ (New)
-- `frontend/src/components/features/WorkspacePanel.tsx` - Container for selection/generation panels ✅ (Updated to accept/pass deletion props)
-- `frontend/src/components/features/SelectedPhotosPanel.tsx` - Component for selecting photos per profile ✅ (Updated to accept/pass deletion props)
-- `frontend/src/components/features/PhotoGallery.tsx` - Contains `MiniPhotoGallery` ✅ (Refactored to use parent deletion state)
-- `frontend/src/components/common/Spinner.tsx` - Reusable Spinner component ✅ (Updated to accept `className`)
+- `package.json` - Root package file (for scripts) ✅
+- `.gitignore` - Specifies intentionally untracked files ✅
+- `cors.json` - Configuration for Cloud Storage CORS ✅
 
 ## Future Tasks (Phase 2 - Merchandise & Accounts)
 

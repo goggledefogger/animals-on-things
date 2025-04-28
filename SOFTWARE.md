@@ -103,7 +103,7 @@ This document details the technical requirements for Phase 1, using **Firebase**
         -   **Database:** **Realtime Database**
         -   **Storage:** Firebase Cloud Storage
         -   **Functions:** Firebase Cloud Functions (Node.js/TypeScript recommended, or Python)
-        -   **Authentication:** Firebase Authentication (Anonymous Auth for Phase 1)
+        -   **Authentication:** Firebase Authentication
         -   **(Phase 3) Scheduler:** Google Cloud Scheduler (for triggering daily function)
     -   **AI Service:** OpenAI API (`gpt-image-1` for image generation, potentially Chat Completions API for theme generation in Phase 3)
         -   *Note:* API Key management via Firebase Functions environment configuration.
@@ -111,7 +111,7 @@ This document details the technical requirements for Phase 1, using **Firebase**
     -   **Package Management:** npm/yarn (Frontend & Cloud Functions if Node.js/TS)
 
 -   **Authentication Process**
-    -   Phase 1 uses **Firebase Anonymous Authentication**. The frontend SDK handles sign-in and provides a persistent anonymous `uid`.
+    -   Phase 1 uses **Firebase Authentication**.
     -   Cloud Functions will verify user identity via Firebase Auth tokens passed in requests.
     -   **Realtime Database** & Storage security rules will be used to enforce data access based on `uid`.
 
