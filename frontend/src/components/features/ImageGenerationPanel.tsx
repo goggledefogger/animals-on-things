@@ -24,7 +24,7 @@ const PREDEFINED_STYLES = [
 export const ImageGenerationPanel: React.FC<ImageGenerationPanelProps> = ({ selections }) => {
   const [selectedStyle, setSelectedStyle] = useState<string | null>('None');
   const [customPrompt, setCustomPrompt] = useState<string>('');
-  const { generateImage, isGenerating, generatedImageUrl, generationError } = useImageGeneration();
+  const { generateImage, isGenerating, generatedImageUrl, generationError, debugErrorInfo } = useImageGeneration();
 
   const canGenerate = selections.length > 0;
 
@@ -94,6 +94,10 @@ export const ImageGenerationPanel: React.FC<ImageGenerationPanelProps> = ({ sele
       {/* Error Display */}
       {generationError && (
         <p className="text-sm text-red-500 dark:text-red-400 mt-3 text-center">Error: {generationError}</p>
+      )}
+      {/* Display detailed debug error info only in development */}
+      {import.meta.env.DEV && debugErrorInfo && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">Debug: {debugErrorInfo}</p>
       )}
 
       {/* Result Display */}

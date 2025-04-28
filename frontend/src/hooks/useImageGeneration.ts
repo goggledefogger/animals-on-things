@@ -30,6 +30,7 @@ interface UseImageGenerationReturn {
   isGenerating: boolean;
   generationError: string | null;
   generatedImageUrl: string | null;
+  debugErrorInfo: string | null; // Add state for detailed debug info
   generateImage: (input: GenerateImageInput) => Promise<void>; // Function to trigger generation
 }
 
@@ -41,6 +42,7 @@ export function useImageGeneration(): UseImageGenerationReturn {
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
+  const [debugErrorInfo, setDebugErrorInfo] = useState<string | null>(null); // State for debug info
   const currentRequestIdRef = useRef<string | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null); // Ref for the client-side timeout
 
@@ -151,6 +153,7 @@ export function useImageGeneration(): UseImageGenerationReturn {
     setIsGenerating(true);
     setGenerationError(null);
     setGeneratedImageUrl(null);
+    setDebugErrorInfo(null); // Clear debug info on new request
     clearClientTimeout(); // Clear previous timeout just in case
 
     // Start client-side safety timeout
@@ -207,7 +210,17 @@ export function useImageGeneration(): UseImageGenerationReturn {
       }
 
     } catch (err: unknown) {
-      console.error(`Function call failed client-side for reqId: ${requestId}`, err);
+      // --- Add detailed logging here ---
+      console.error(`Function call failed client-side for reqId: ${requestId}. Error object:`, err);
+      let detailedErrorString = "Client Error: Unknown";
+      if (err instanceof FunctionsError) {
+        detailedErrorString = `Client Error: ${err.code} - ${err.message}`;
+        console.error(`Detailed FunctionsError code: ${err.code}, message: ${err.message}`);
+      } else if (err instanceof Error) {
+        detailedErrorString = `Client Error: ${err.message}`;
+      }
+      setDebugErrorInfo(detailedErrorString); // Set the debug info state
+      // --- End detailed logging ---
 
       // Only set error state for specific errors or if it's not a recoverable network error.
       // Let the listener handle success even if the initial call failed due to network.
@@ -262,6 +275,7 @@ export function useImageGeneration(): UseImageGenerationReturn {
     isGenerating,
     generationError,
     generatedImageUrl,
+    debugErrorInfo, // Return the new state
     generateImage,
   };
 }
