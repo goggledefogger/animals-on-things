@@ -15,16 +15,25 @@ interface WorkspacePanelProps {
   context: WorkspaceContext;
   onPhotoSelectForGeneration: (profileId: string, photoId: string | null) => void;
   onDeletePhoto: (input: DeletePhotoInput) => Promise<boolean>; // Add delete handler prop
+  // Add props for photo deletion status
+  isDeletingPhoto: boolean;
+  photoDeletionError: string | null;
 }
 
-export const WorkspacePanel: React.FC<WorkspacePanelProps> = ({ context, onPhotoSelectForGeneration, onDeletePhoto }) => {
+export const WorkspacePanel: React.FC<WorkspacePanelProps> = ({
+  context,
+  onPhotoSelectForGeneration,
+  onDeletePhoto,
+  isDeletingPhoto, // Destructure new props
+  photoDeletionError // Destructure new props
+}) => {
 
   // If no context (no profiles selected), show placeholder
   if (!context) {
     return (
       <Card className="bg-gray-50 dark:bg-gray-800/50 h-full flex items-center justify-center">
         <p className="text-center text-gray-500 dark:text-gray-400 italic">
-          Select an animal profile from the left to begin generating images.
+          Select an animal profile to begin generating images.
         </p>
       </Card>
     );
@@ -48,6 +57,10 @@ export const WorkspacePanel: React.FC<WorkspacePanelProps> = ({ context, onPhoto
         selectedPhotoMap={selectedPhotoMap}
         onPhotoSelect={onPhotoSelectForGeneration}
         onDeletePhoto={onDeletePhoto}
+        // Pass the deletion status down to SelectedPhotosPanel if needed there
+        // (Currently SelectedPhotosPanel doesn't use these, but passing for future use/consistency)
+        isDeletingPhoto={isDeletingPhoto}
+        photoDeletionError={photoDeletionError}
       />
       <ImageGenerationPanel
         selections={validSelections}

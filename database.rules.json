@@ -1,16 +1,29 @@
 {
   "rules": {
+    "users": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
     "profiles": {
       "$uid": {
-        ".read": "auth != null && auth.uid == $uid",
-        ".write": "auth != null && auth.uid == $uid"
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid",
+        "$profileId": {
+          "photos": {
+            ".read": "$uid === auth.uid",
+            ".write": "$uid === auth.uid"
+          }
+        }
       }
     },
     "generatedImages": {
-       "$uid": {
-         ".read": "auth != null && auth.uid == $uid",
-         ".write": "auth != null && auth.uid == $uid"
-       }
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid",
+        ".indexOn": "createdAt"
+      }
     }
   }
 }

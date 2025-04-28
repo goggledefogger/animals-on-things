@@ -17,19 +17,23 @@ interface SelectedPhotosPanelProps {
   selectedPhotoMap: SelectedPhotoMap;
   onPhotoSelect: (profileId: string, photoId: string | null) => void;
   onDeletePhoto: (input: DeletePhotoInput) => Promise<boolean>;
+  isDeletingPhoto: boolean;
+  photoDeletionError: string | null;
 }
 
 export const SelectedPhotosPanel: React.FC<SelectedPhotosPanelProps> = ({
     selectedProfiles,
     selectedPhotoMap,
     onPhotoSelect,
-    onDeletePhoto
+    onDeletePhoto,
+    isDeletingPhoto,
+    photoDeletionError
 }) => {
 
   if (selectedProfiles.length === 0) {
     return (
       <Card className="bg-gray-50 dark:bg-gray-800/50">
-        <p className="text-center text-gray-500 dark:text-gray-400 italic">Select one or more animal profiles from the left to begin.</p>
+        <p className="text-center text-gray-500 dark:text-gray-400 italic">Select one or more animal profiles to begin.</p>
       </Card>
     );
   }
@@ -48,6 +52,8 @@ export const SelectedPhotosPanel: React.FC<SelectedPhotosPanelProps> = ({
               selectedPhotoId={selectedPhotoMap[profile.id] || null}
               onPhotoSelect={onPhotoSelect}
               onDeletePhoto={onDeletePhoto}
+              isDeletingPhoto={isDeletingPhoto}
+              photoDeletionError={photoDeletionError}
             />
             <div className="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3">
                 <PhotoUploader profileId={profile.id} />

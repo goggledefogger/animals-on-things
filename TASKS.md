@@ -83,6 +83,8 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
   - [x] Increase function timeout to handle longer image generation requests.
   - [x] Fix client-side timeout to match function timeout.
   - [x] Ensure proper CORS handling by explicitly configuring region.
+  - [x] Add logo image next to title text.
+  - [x] Generate and integrate favicon using logo (via `/public` directory and `index.html`).
 
 ## In Progress Tasks
 
@@ -90,6 +92,7 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
   - [ ] UI Component: Display generated image from URL.
   - [ ] UI Component: Download button for generated image.
   - [ ] UI Component: Session gallery for recently generated images (client-side state).
+  - [x] UI Feedback: Propagate photo deletion loading/error state (`isDeletingPhoto`, `photoDeletionError`) down to `MiniPhotoGallery` for accurate button state/feedback. ✅
 - [ ] **Refinement & Styling** (Continued)
   - [ ] Apply playful & simple theme based on `UI.md` using Tailwind.
   - [ ] Add loading indicators and error handling feedback (for Firebase operations & Function calls).
@@ -153,13 +156,17 @@ Implement the core functionality for users to manage Animal Profiles, upload pho
   - `functions/src/deletePhoto.ts` - Photo deletion function ✅
   - `functions/src/getImageHistory.ts` - Function to fetch generated image history ✅
   - `functions/.eslintrc.js` - ESLint configuration for functions ✅ (Updated for compatibility)
-- `database.rules.json` - **Realtime Database** security rules ✅
+- `database.rules.json` - **Realtime Database** security rules ✅ (Added `.indexOn` for `generatedImages/createdAt`)
 - `storage.rules` - Cloud Storage security rules ✅ (Path fixed)
 - `firebase.json` - Firebase project configuration ✅
 - `.firebaserc` - Firebase project alias configuration ✅
 - `package.json` - Root package file (for scripts like `npm run dev`) ✅
 - `.gitignore` - Specifies intentionally untracked files ✅ (Updated)
 - `cors.json` - Configuration for Cloud Storage CORS ✅ (New)
+- `frontend/src/components/features/WorkspacePanel.tsx` - Container for selection/generation panels ✅ (Updated to accept/pass deletion props)
+- `frontend/src/components/features/SelectedPhotosPanel.tsx` - Component for selecting photos per profile ✅ (Updated to accept/pass deletion props)
+- `frontend/src/components/features/PhotoGallery.tsx` - Contains `MiniPhotoGallery` ✅ (Refactored to use parent deletion state)
+- `frontend/src/components/common/Spinner.tsx` - Reusable Spinner component ✅ (Updated to accept `className`)
 
 ## Future Tasks (Phase 2 - Merchandise & Accounts)
 

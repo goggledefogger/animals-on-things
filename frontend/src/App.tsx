@@ -11,6 +11,7 @@ import AnimalProfilesPanel from './components/features/AnimalProfilesPanel';
 import { WorkspacePanel } from './components/features/WorkspacePanel';
 import { ImageHistoryGallery } from './components/features/ImageHistoryGallery'; // Import the correct history component
 import { usePhotoDeletion } from './hooks/usePhotoDeletion'; // Import the deletion hook
+import logo from './assets/logo-teal.png'; // Import the logo
 
 // Define map type for selected photos
 export interface SelectedPhotoMap {
@@ -35,7 +36,7 @@ function App() {
   const [selectedProfiles, setSelectedProfiles] = useState<AnimalProfile[]>([]);
   const [selectedPhotoMap, setSelectedPhotoMap] = useState<SelectedPhotoMap>({});
   const { profiles, loading: profilesLoading, error: profilesError, deleteProfile } = useAnimalProfiles();
-  const { deletePhoto, deletionError } = usePhotoDeletion();
+  const { deletePhoto, isDeleting: isDeletingPhoto, deletionError: photoDeletionError } = usePhotoDeletion();
 
   // Refactor toggle handler for clarity and direct context setting
   const handleProfileSelectToggle = useCallback((profile: AnimalProfile) => {
@@ -51,7 +52,7 @@ function App() {
     } else {
       nextSelectedProfiles = [...selectedProfiles, profile];
       // Ensure entry exists in map, default to null if needed
-      nextPhotoMap = { ...selectedPhotoMap, [profile.id]: selectedPhotoMap[profile.id] || null }; 
+      nextPhotoMap = { ...selectedPhotoMap, [profile.id]: selectedPhotoMap[profile.id] || null };
     }
 
     // Update the primary states
@@ -60,10 +61,10 @@ function App() {
 
     // Directly set the context based on the *result* of the selection update
     if (nextSelectedProfiles.length > 0) {
-      setWorkspaceContext({ 
-        type: 'generation_setup', 
-        selectedProfiles: nextSelectedProfiles, 
-        selectedPhotoMap: nextPhotoMap 
+      setWorkspaceContext({
+        type: 'generation_setup',
+        selectedProfiles: nextSelectedProfiles,
+        selectedPhotoMap: nextPhotoMap
       });
     } else {
       setWorkspaceContext(null); // Clear context if no profiles are selected
@@ -79,12 +80,12 @@ function App() {
       // Also update the context *if* it's currently generation_setup
       setWorkspaceContext(prevContext => {
         if (prevContext?.type === 'generation_setup') {
-          // Make sure selectedProfiles is also up-to-date in the context 
+          // Make sure selectedProfiles is also up-to-date in the context
           // (though it should be, this ensures consistency)
-          return { 
-              type: 'generation_setup', 
+          return {
+              type: 'generation_setup',
               selectedProfiles: selectedProfiles, // Use current selectedProfiles state
-              selectedPhotoMap: newPhotoMap 
+              selectedPhotoMap: newPhotoMap
           };
         }
         return prevContext; // Don't change context if not in generation setup
@@ -108,12 +109,12 @@ function App() {
         // For now, the photo might visually linger until a page refresh or profile re-selection.
         // TODO: Enhance useAnimalPhotos to update automatically after deletion.
     } else {
-        console.error('Photo deletion failed:', deletionError);
+        console.error('Photo deletion failed:', photoDeletionError);
         // Show error to user? (Deletion hook manages error state, maybe display it globally?)
-        alert(`Failed to delete photo: ${deletionError}`); // Simple alert for now
+        alert(`Failed to delete photo: ${photoDeletionError}`); // Simple alert for now
     }
     return success;
-  }, [deletePhoto, selectedPhotoMap, handlePhotoSelectForGeneration, deletionError]); // Add dependencies
+  }, [deletePhoto, selectedPhotoMap, handlePhotoSelectForGeneration, photoDeletionError]);
 
   // Handler for profile deletion
   const handleDeleteProfile = useCallback((profileId: string) => {
@@ -121,16 +122,16 @@ function App() {
     const nextSelectedProfiles = selectedProfiles.filter(p => p.id !== profileId);
     const nextPhotoMap = { ...selectedPhotoMap };
     delete nextPhotoMap[profileId];
-    
+
     setSelectedProfiles(nextSelectedProfiles);
     setSelectedPhotoMap(nextPhotoMap);
 
     // Update context based on the new state
     if (nextSelectedProfiles.length > 0) {
-      setWorkspaceContext({ 
-          type: 'generation_setup', 
-          selectedProfiles: nextSelectedProfiles, 
-          selectedPhotoMap: nextPhotoMap 
+      setWorkspaceContext({
+          type: 'generation_setup',
+          selectedProfiles: nextSelectedProfiles,
+          selectedPhotoMap: nextPhotoMap
       });
     } else {
       setWorkspaceContext(null);
@@ -154,7 +155,8 @@ function App() {
       {/* Central container with max width */}
       <div className="max-w-7xl mx-auto">
         <header className="mb-8 sm:mb-10 flex flex-col sm:flex-row justify-between items-center">
-          <Link to="/" className="block text-center text-4xl sm:text-5xl font-bold font-nunito my-4 sm:my-6 text-sky-700 dark:text-sky-300 no-underline hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
+          <Link to="/" className="flex items-center text-center text-4xl sm:text-5xl font-bold font-nunito my-4 sm:my-6 text-sky-700 dark:text-sky-300 no-underline hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
+            <img src={logo} alt="Animals On Things logo" className="h-10 w-10 sm:h-12 sm:w-12 mr-3" />
             Animals On Things
           </Link>
           {/* Updated Navigation using NavLink */}
@@ -198,6 +200,8 @@ function App() {
                     context={workspaceContext}
                     onPhotoSelectForGeneration={handlePhotoSelectForGeneration}
                     onDeletePhoto={handleDeletePhoto}
+                    isDeletingPhoto={isDeletingPhoto}
+                    photoDeletionError={photoDeletionError}
                   />
                 </div>
               </div>

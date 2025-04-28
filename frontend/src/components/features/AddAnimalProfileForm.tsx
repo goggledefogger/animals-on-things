@@ -41,7 +41,7 @@ export const AddAnimalProfileForm: React.FC = () => {
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g., Sparky the Squirrel"
+          placeholder="e.g., Pepe the Skunk"
           disabled={isAdding}
           required
           className="w-full sm:flex-grow"

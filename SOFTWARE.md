@@ -144,11 +144,11 @@ This document details the technical requirements for Phase 1, using **Firebase**
         "profiles": {
           "$uid": { // Anonymous User ID
             "$profileId": { // Auto-generated key for profile
-              "name": "Sparky the Squirrel",
+              "name": "Pepe the Skunk",
               "createdAt": 1678886400000,
               "photos": {
                 "$photoId": { // Auto-generated key for photo
-                  "storagePath": "user/$uid/profiles/$profileId/sparky1.jpg",
+                  "storagePath": "user/$uid/profiles/$profileId/pepe1.jpg",
                   "createdAt": 1678886450000
                   // NOTE: downloadUrl is NOT stored here, fetched on demand by client
                 },
@@ -192,3 +192,8 @@ This document details the technical requirements for Phase 1, using **Firebase**
       }
       ```
     -   *Data is denormalized where appropriate. Security rules are critical for protecting paths based on `$uid`.*
+    -   **Indexes:** Define `.indexOn` rules in `database.rules.json` for fields used in queries (e.g., `.indexOn: "createdAt"` added to `/generatedImages/$uid` for efficient retrieval of recent images).
+
+-   **Security Considerations**
+    -   **Realtime Database:**
+        -   **Indexes:** Define `.indexOn` rules in `database.rules.json` for fields used in queries (e.g., `.indexOn: "createdAt"` added to `/generatedImages/$uid` for efficient retrieval of recent images).

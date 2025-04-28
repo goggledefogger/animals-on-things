@@ -1,9 +1,19 @@
 import React from 'react';
 
-export const Spinner: React.FC = () => {
+// Define props type to accept className
+interface SpinnerProps {
+  className?: string;
+}
+
+export const Spinner: React.FC<SpinnerProps> = ({ className }) => {
+  // Define base classes
+  const baseClasses = "animate-spin h-5 w-5 text-primary-500";
+  // Combine base classes with any passed-in classes
+  const combinedClasses = `${baseClasses} ${className || ''}`.trim();
+
   return (
     <svg
-      className="animate-spin -ml-1 mr-3 h-5 w-5 text-primary-500"
+      className={combinedClasses} // Use combined classes
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
