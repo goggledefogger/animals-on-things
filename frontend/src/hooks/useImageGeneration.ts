@@ -207,56 +207,38 @@ export function useImageGeneration(): UseImageGenerationReturn {
       }
 
     } catch (err: unknown) {
-      // Keep essential error logging
-      console.error(`Function call failed client-side for reqId: ${requestId}. Error object:`, err);
+      // Log any client-side error from the initial call
+      console.error(`Client-side error during generateImage call for reqId: ${requestId}. Error object:`, err);
 
-      // Only set error state for specific errors or if it's not a recoverable network error.
-      // Let the listener handle success even if the initial call failed due to network.
+      // ONLY set state for errors that definitively mean the function couldn't have run.
+      // For network issues, timeouts, internal client errors, etc., let the listener/timeout handle it.
       if (err instanceof FunctionsError) {
         const code = err.code;
-        // These codes often indicate temporary network issues or client-side timeouts
-        // where the function might still succeed on the backend.
-        // Treat client-side 'internal' as potentially recoverable too, as it might be due to network disruption.
-        const isPotentiallyRecoverable = code === 'deadline-exceeded' || code === 'unavailable' || code === 'cancelled' || code === 'internal';
+        // Explicitly list codes that indicate a definite failure before/during the call attempt itself.
+        const isDefinitiveFailure = code === 'unauthenticated' || code === 'invalid-argument' || code === 'permission-denied';
 
-        if (isPotentiallyRecoverable) {
-            console.warn(`Potentially recoverable client-side error (${code}) for reqId: ${requestId}. Waiting for listener.`);
-            // Don't set error, don't stop generating, don't clear timeout. Listener or timeout will resolve state.
-        } else {
-            // Treat other function errors (e.g., internal, invalid-argument, unauthenticated) as likely final.
+        if (isDefinitiveFailure) {
+            console.error(`Definitive client-side FunctionsError (${code}) for reqId: ${requestId}. Setting error state.`);
             const techDetails = `(code: ${code}${err.details ? ", details: " + JSON.stringify(err.details) : ""})`;
-            let finalErrorMessage = `${err.message} ${techDetails}`.trim();
-            if (code === 'internal') {
-                 finalErrorMessage = `Internal error during generation. Please check the gallery. ${techDetails}`;
-            }
-            console.error(`Non-recoverable FunctionsError for reqId: ${requestId}. Setting error state.`);
+            const finalErrorMessage = `${err.message} ${techDetails}`.trim();
             setGenerationError(finalErrorMessage);
-            setIsGenerating(false); // Stop loading on non-recoverable error
+            setIsGenerating(false); // Stop loading
             clearClientTimeout(); // Clear the safety timeout
-            // Keep currentRequestIdRef set? Maybe, listener might still contradict, but unlikely.
-            // Let's clear it to prevent listener from accidentally overwriting this specific error.
-            // currentRequestIdRef.current = null;
+            currentRequestIdRef.current = null; // This request definitely failed
+        } else {
+            // For other FunctionsError codes (internal, unavailable, deadline-exceeded, cancelled),
+            // log them but assume they might be recoverable or the function might have succeeded anyway.
+            console.warn(`Potentially recoverable client-side FunctionsError (${code}) for reqId: ${requestId}. Waiting for listener/timeout.`);
+            // DO NOTHING to UI state here.
         }
-      } else if (err instanceof Error) {
-        // Generic JS errors (e.g., network failures before even hitting the function)
-        console.error(`Generic Error during function call for reqId: ${requestId}. Setting error state.`);
-        setGenerationError(err.message || "An unexpected client-side error occurred.");
-        setIsGenerating(false); // Stop loading
-        clearClientTimeout(); // Clear the safety timeout
-        // currentRequestIdRef.current = null; // Clear ref
       } else {
-         // Unknown error type
-         console.error(`Unknown error type during function call for reqId: ${requestId}. Setting error state.`);
-         setGenerationError("An unknown error occurred during the function call.");
-         setIsGenerating(false);
-         clearClientTimeout();
-         // currentRequestIdRef.current = null;
+        // For generic JS Errors or unknown types (often network issues),
+        // log them but assume the function might have succeeded.
+        console.warn(`Generic client-side error for reqId: ${requestId}. Waiting for listener/timeout.`, err);
+        // DO NOTHING to UI state here.
       }
     }
-    // REMOVED finally block that set isGenerating = false. State is now managed by:
-    // 1. Listener success path
-    // 2. Client-side timeout firing
-    // 3. Non-recoverable error in catch block
+    // REMOVED finally block. State is managed by listener, timeout, or definitive errors in catch.
   }, [currentUser, clearClientTimeout, generatedImageUrl]); // Added generatedImageUrl to deps for direct response check
 
   return {
