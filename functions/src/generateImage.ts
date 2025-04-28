@@ -230,19 +230,20 @@ export const generateImage = functions
   }
 
   // 6. Upload Generated Image Base64 to Cloud Storage
-  let finalImageUrl = ""; // Initialize final URL
+  let finalImageUrl = ""; 
+  let storagePathForDb: string | null = null; // Declare variable here
+
   try {
     if (generatedImageBase64) {
-      const bucket = admin.storage().bucket(); // Get default bucket
+      const bucket = admin.storage().bucket(); 
       const timestamp = Date.now();
-      const destination = `generated/${uid}/${timestamp}_${style}.png`; // Store as png
+      // Construct the destination path within this block
+      const destination = `generated/${uid}/${timestamp}_${style || 'None'}.png`; 
+      storagePathForDb = destination; // Assign to outer variable
 
       functions.logger.info(`Storing generated image in Firebase Storage: ${destination}`, {uid});
 
-      // Decode base64 string to buffer
       const imageBuffer = Buffer.from(generatedImageBase64, "base64");
-
-      // Upload buffer to Firebase Storage
       const file = bucket.file(destination);
       await file.save(imageBuffer, {
         metadata: {
@@ -253,16 +254,14 @@ export const generateImage = functions
       });
       functions.logger.info("Image successfully uploaded to Firebase Storage.", {uid, destination});
 
-      // Get a signed URL
       const [signedUrl] = await file.getSignedUrl({
         action: "read",
         expires: "03-01-2500", // Far-future expiration
       });
       finalImageUrl = signedUrl;
-
       functions.logger.info(`Using Firebase Storage URL: ${finalImageUrl}`, {uid});
+
     } else {
-      // Should not happen if API call succeeded
       functions.logger.warn("No base64 image data received from OpenAI to upload.", {uid});
       throw new HttpsError("internal", "Image generated but could not be stored.");
     }
@@ -274,19 +273,21 @@ export const generateImage = functions
   // 7. Save Metadata to Realtime Database
   try {
     const generatedImagesRef = db.ref(`/generatedImages/${uid}`).push();
-    await generatedImagesRef.set({
-      style,
+    const metadataToSave = {
+      requestId,
+      style: style || null,
       prompt: prompt || null,
       profileIds: fetchedPhotoDetails.map((s) => s.profileId),
       photoIds: fetchedPhotoDetails.map((s) => s.photoId),
       imageUrl: finalImageUrl,
+      storagePath: storagePathForDb, // Use the correctly scoped variable
       model: modelToUse,
       createdAt: admin.database.ServerValue.TIMESTAMP,
-    });
-    functions.logger.info("Saved generated image metadata to RTDB", {uid, ref: generatedImagesRef.key});
+    };
+    await generatedImagesRef.set(metadataToSave);
+    functions.logger.info("Saved generated image metadata to RTDB", {uid, reqId: requestId, ref: generatedImagesRef.key });
   } catch (dbError) {
-    // Non-fatal error for metadata saving
-    functions.logger.error("Failed to save generated image metadata (non-fatal):", {uid, dbError});
+    functions.logger.error("Failed to save generated image metadata (non-fatal):", {uid, reqId: requestId, dbError});
   }
 
   // 8. Return Result (Firebase Storage URL)
