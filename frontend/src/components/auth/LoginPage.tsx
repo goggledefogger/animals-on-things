@@ -24,9 +24,14 @@ const LoginPage: React.FC = () => {
     try {
       const auth = getAuth();
 
+      // Use environment variable for the base URL
+      const baseUrl = import.meta.env.VITE_APP_BASE_URL || window.location.origin;
+      console.log(`Using base URL for sign-in link: ${baseUrl}`); // Debug log
+
       const actionCodeSettings = {
         // URL must be whitelisted in Firebase Console -> Auth -> Sign-in method
-        url: `${window.location.origin}/finishLogin`,
+        // Use VITE_APP_BASE_URL from .env / .env.production
+        url: `${baseUrl}/finishLogin`,
         handleCodeInApp: true
       };
 

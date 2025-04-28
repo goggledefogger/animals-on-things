@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { getFunctions, httpsCallable, FunctionsError } from 'firebase/functions';
 import { useAuth } from '../contexts/AuthContext';
-import { getDatabase, ref, query, orderByChild, limitToLast, onValue, off } from "firebase/database";
+import { getDatabase, ref, query, orderByChild, limitToLast, onValue, off, DataSnapshot } from "firebase/database";
 import { v4 as uuidv4 } from 'uuid';
 
 // Define the expected input structure for the Firebase Function
@@ -12,16 +12,18 @@ interface GenerateImageInput {
 }
 
 // Define the expected output structure from the Firebase Function
+// (The function might return immediately, or the listener might provide the URL later)
 interface GenerateImageOutput {
-  imageUrl: string; // Expect URL on success
+  imageUrl?: string; // URL might be returned directly for quick cases
+  // No explicit error needed here, handled by FunctionsError or listener timeout
 }
 
-// Define types for the history data with requestId
+// Define the structure of the data expected from the RTDB listener
 interface HistoryImageData {
     imageUrl: string;
+    requestId: string;
     createdAt: number;
-    requestId: string; // Added request ID
-    generatedImageId?: string;
+    // other fields exist but aren't needed by this listener
 }
 
 interface UseImageGenerationReturn {
@@ -31,17 +33,36 @@ interface UseImageGenerationReturn {
   generateImage: (input: GenerateImageInput) => Promise<void>; // Function to trigger generation
 }
 
+// Timeout slightly longer than the cloud function's 540s timeout
+const CLIENT_SIDE_TIMEOUT_MS = 600000; // 10 minutes
+
 export function useImageGeneration(): UseImageGenerationReturn {
   const { currentUser } = useAuth();
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
-  // Ref to store the ID of the *current* generation request
   const currentRequestIdRef = useRef<string | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null); // Ref for the client-side timeout
+
+  // --- Utility to clear timeout ---
+  const clearClientTimeout = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
 
   // --- RTDB Listener Effect ---
   useEffect(() => {
-    if (!currentUser) return; // No listener if no user
+    if (!currentUser) {
+        // Clear state if user logs out
+        setIsGenerating(false);
+        setGenerationError(null);
+        setGeneratedImageUrl(null);
+        currentRequestIdRef.current = null;
+        clearClientTimeout();
+        return;
+    }
 
     const db = getDatabase();
     const recentImageQuery = query(
@@ -50,9 +71,9 @@ export function useImageGeneration(): UseImageGenerationReturn {
       limitToLast(1)
     );
 
-    let initialDataLoaded = false;
+    let initialDataLoaded = false; // To potentially ignore stale data on initial load if already generating
 
-    const unsubscribe = onValue(recentImageQuery, (snapshot) => {
+    const listenerCallback = (snapshot: DataSnapshot) => { // Use client-side DataSnapshot type
       if (!snapshot.exists()) {
          console.log("RTDB listener: No image data found.");
          initialDataLoaded = true;
@@ -60,17 +81,23 @@ export function useImageGeneration(): UseImageGenerationReturn {
       }
 
       const images = snapshot.val();
-      const imageKey = Object.keys(images)[0];
+      const imageKey = Object.keys(images)[0]; // Assumes non-empty object
       const latestImage = images[imageKey] as HistoryImageData;
+      console.log("RTDB listener received:", latestImage);
       console.log("Current request ID ref:", currentRequestIdRef.current);
 
-      if (!initialDataLoaded) {
+      // If the listener fires *while* we're actively generating,
+      // ignore the initial data load event unless it matches our request ID.
+      if (!initialDataLoaded && isGenerating && currentRequestIdRef.current) {
+          console.log("RTDB listener: Initial data received during active generation.");
           initialDataLoaded = true;
-          if (isGenerating && currentRequestIdRef.current) {
-              console.log("Listener attached during active generation, ignoring initial data.");
+          // Only process if it matches the current request
+          if (!latestImage.requestId || latestImage.requestId !== currentRequestIdRef.current) {
+              console.log("RTDB listener: Initial data doesn't match current request, ignoring.");
               return;
           }
       }
+      initialDataLoaded = true; // Mark initial data as loaded after first check
 
       // Check if this image corresponds to the request we are waiting for
       if (latestImage.requestId && latestImage.requestId === currentRequestIdRef.current) {
@@ -78,86 +105,157 @@ export function useImageGeneration(): UseImageGenerationReturn {
           setGeneratedImageUrl(latestImage.imageUrl);
           setGenerationError(null);
           setIsGenerating(false);
-          currentRequestIdRef.current = null;
+          currentRequestIdRef.current = null; // Request completed
+          clearClientTimeout(); // Clear the safety timeout
+      } else {
+          // Handle potential recovery: If not generating, and image is very recent, show it.
+          const fiveSecondsAgo = Date.now() - 5000;
+          if (!isGenerating && !currentRequestIdRef.current && latestImage.createdAt > fiveSecondsAgo) {
+              console.log("RTDB listener: Found very recent image with no matching/pending request ID. Displaying (recovery).");
+              setGeneratedImageUrl(latestImage.imageUrl);
+              setGenerationError(null);
+              clearClientTimeout(); // Clear any stray timeout
+          } else {
+             console.log("RTDB listener: Data received doesn't match current request ID or isn't recent enough for recovery.");
+          }
       }
-       else {
-            // Handle potential recovery on initial load if image is very recent
-            const fiveSecondsAgo = Date.now() - 5000;
-            if (!isGenerating && !currentRequestIdRef.current && latestImage.createdAt > fiveSecondsAgo) {
-                console.log("RTDB listener: Found very recent image with no matching/pending request ID. Displaying anyway (recovery).", latestImage.imageUrl);
-                setGeneratedImageUrl(latestImage.imageUrl);
-                setGenerationError(null);
-            }
-       }
-    }, (error) => {
+    };
+
+    const errorCallback = (error: Error) => { // Firebase RTDB errors are typically Error instances
        console.error("RTDB listener error:", error);
-    });
+       // Potentially set a state error, but often these self-recover or are permission issues
+       // For now, just log it. If persistent, might need more handling.
+       // setError("Failed to listen for image updates.");
+    };
+
+    // Subscribe
+    onValue(recentImageQuery, listenerCallback, errorCallback); // Removed unused variable assignment
 
     // Cleanup function
     return () => {
-      off(recentImageQuery, 'value', unsubscribe);
+      console.log("RTDB listener cleaning up.");
+      off(recentImageQuery, 'value', listenerCallback); // Detach the specific callback
+      // Note: Firebase documentation often shows just passing the query to off(),
+      // but specifying the event type ('value') and callback might be safer.
+      clearClientTimeout(); // Clear timeout on unmount
     };
-  }, [currentUser]); // Rerun listener setup if user changes
+    // Rerun effect if user changes
+  }, [currentUser, isGenerating, clearClientTimeout]); // Added isGenerating to deps for the initial load check
 
 
   const generateImage = useCallback(async (input: GenerateImageInput) => {
-    // Generate a unique ID for this request
     const requestId = uuidv4();
-    currentRequestIdRef.current = requestId; // Track this request
+    currentRequestIdRef.current = requestId;
 
     // Reset state for the new request
     setIsGenerating(true);
     setGenerationError(null);
     setGeneratedImageUrl(null);
+    clearClientTimeout(); // Clear previous timeout just in case
 
-    // Pre-flight checks
-    if (!currentUser) { setGenerationError("Auth required."); setIsGenerating(false); currentRequestIdRef.current = null; return; }
-    if (input.selections.length === 0) { setGenerationError("Selection required."); setIsGenerating(false); currentRequestIdRef.current = null; return; }
-    if (!input.style && !input.prompt) { setGenerationError("Style or prompt required."); setIsGenerating(false); currentRequestIdRef.current = null; return; }
+    // Start client-side safety timeout
+    timeoutRef.current = setTimeout(() => {
+      if (currentRequestIdRef.current === requestId) { // Check if STILL waiting for THIS request
+        console.warn(`Client-side timeout reached for reqId: ${requestId}`);
+        setGenerationError("Image generation is taking longer than expected. Please check the gallery later or try again.");
+        setIsGenerating(false);
+        currentRequestIdRef.current = null; // Give up on this request ID
+      }
+    }, CLIENT_SIDE_TIMEOUT_MS);
+
+    // Pre-flight checks (remain the same)
+    if (!currentUser) {
+      setGenerationError("Authentication is required to generate images.");
+      setIsGenerating(false);
+      currentRequestIdRef.current = null;
+      clearClientTimeout();
+      return;
+    }
+    if (input.selections.length === 0) {
+      setGenerationError("Please select at least one photo for generation.");
+      setIsGenerating(false);
+      currentRequestIdRef.current = null;
+      clearClientTimeout();
+      return;
+    }
+    if (!input.style && !input.prompt) {
+      setGenerationError("A style or a custom prompt is required.");
+      setIsGenerating(false);
+      currentRequestIdRef.current = null;
+      clearClientTimeout();
+      return;
+    }
 
     console.log(`Calling generateImage function with reqId: ${requestId}`, input);
 
     try {
       const functions = getFunctions();
-      // Ensure type includes requestId for the call
       const generateImageFunction = httpsCallable<GenerateImageInput & { requestId: string }, GenerateImageOutput>(
-        functions, 'generateImage', { timeout: 540000 }
+        functions, 'generateImage', { timeout: 540000 } // Keep function timeout
       );
 
-      // Include requestId in the payload
+      // Call the function, but don't solely rely on its direct response for success
       const result = await generateImageFunction({ ...input, requestId });
       console.log(`Direct function call successful for reqId: ${requestId}`, result.data);
 
-      // Direct response is secondary, listener is primary.
-      // Optionally set image here for speed if listener hasn't fired.
-      if (currentRequestIdRef.current === requestId && result.data.imageUrl) {
-          console.log(`Setting image URL from direct response for reqId: ${requestId} (listener may override)`);
+      // OPTIONAL: Set image URL from direct response for potentially faster UI update,
+      // but only if the listener hasn't already handled it.
+      if (currentRequestIdRef.current === requestId && result.data.imageUrl && !generatedImageUrl) {
+          console.log(`Setting image URL from direct response for reqId: ${requestId} (listener might override)`);
           setGeneratedImageUrl(result.data.imageUrl);
-          // Let listener clear the ref and set isGenerating false
+          // DO NOT set isGenerating false or clear timeout here - let the listener confirm.
       }
 
     } catch (err: unknown) {
-      console.error(`Function call failed for reqId: ${requestId}`, err);
-      if (currentRequestIdRef.current === requestId) {
-         let finalErrorMessage = 'An unexpected error occurred.';
-         if (err instanceof FunctionsError) {
-             const techDetails = `(code: ${err.code}${err.details ? ", details: " + JSON.stringify(err.details) : ""})`;
-             if (err.code === 'internal') {
-                 finalErrorMessage = `Internal error during generation. Check gallery. ${techDetails}`;
-             } else {
-                 finalErrorMessage = `${err.message} ${techDetails}`.trim();
-             }
-         } else if (err instanceof Error) {
-             finalErrorMessage = err.message;
-         }
-         setGenerationError(finalErrorMessage);
-         setGeneratedImageUrl(null);
-         // Keep ref set; listener might still succeed
-         setIsGenerating(false); // Stop loading on error
+      console.error(`Function call failed client-side for reqId: ${requestId}`, err);
+
+      // Only set error state for specific errors or if it's not a recoverable network error.
+      // Let the listener handle success even if the initial call failed due to network.
+      if (err instanceof FunctionsError) {
+        const code = err.code;
+        // These codes often indicate temporary network issues or client-side timeouts
+        // where the function might still succeed on the backend.
+        const isPotentiallyRecoverable = code === 'deadline-exceeded' || code === 'unavailable' || code === 'cancelled';
+
+        if (isPotentiallyRecoverable) {
+            console.warn(`Potentially recoverable client-side error (${code}) for reqId: ${requestId}. Waiting for listener.`);
+            // Don't set error, don't stop generating, don't clear timeout. Listener or timeout will resolve state.
+        } else {
+            // Treat other function errors (e.g., internal, invalid-argument, unauthenticated) as likely final.
+            const techDetails = `(code: ${code}${err.details ? ", details: " + JSON.stringify(err.details) : ""})`;
+            let finalErrorMessage = `${err.message} ${techDetails}`.trim();
+            if (code === 'internal') {
+                 finalErrorMessage = `Internal error during generation. Please check the gallery. ${techDetails}`;
+            }
+            console.error(`Non-recoverable FunctionsError for reqId: ${requestId}. Setting error state.`);
+            setGenerationError(finalErrorMessage);
+            setIsGenerating(false); // Stop loading on non-recoverable error
+            clearClientTimeout(); // Clear the safety timeout
+            // Keep currentRequestIdRef set? Maybe, listener might still contradict, but unlikely.
+            // Let's clear it to prevent listener from accidentally overwriting this specific error.
+            // currentRequestIdRef.current = null;
+        }
+      } else if (err instanceof Error) {
+        // Generic JS errors (e.g., network failures before even hitting the function)
+        console.error(`Generic Error during function call for reqId: ${requestId}. Setting error state.`);
+        setGenerationError(err.message || "An unexpected client-side error occurred.");
+        setIsGenerating(false); // Stop loading
+        clearClientTimeout(); // Clear the safety timeout
+        // currentRequestIdRef.current = null; // Clear ref
+      } else {
+         // Unknown error type
+         console.error(`Unknown error type during function call for reqId: ${requestId}. Setting error state.`);
+         setGenerationError("An unknown error occurred during the function call.");
+         setIsGenerating(false);
+         clearClientTimeout();
+         // currentRequestIdRef.current = null;
       }
     }
-    // No finally block setting isGenerating=false; listener handles it on success, catch handles it on failure.
-  }, [currentUser]);
+    // REMOVED finally block that set isGenerating = false. State is now managed by:
+    // 1. Listener success path
+    // 2. Client-side timeout firing
+    // 3. Non-recoverable error in catch block
+  }, [currentUser, clearClientTimeout, generatedImageUrl]); // Added generatedImageUrl to deps for direct response check
 
   return {
     isGenerating,

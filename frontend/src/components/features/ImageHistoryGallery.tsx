@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useImageHistory } from '../../hooks/useImageHistory';
+import { useImageHistory, type ImageHistoryItem } from '../../hooks/useImageHistory';
+import { useImageHistoryDeletion } from '../../hooks/useImageHistoryDeletion';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { Spinner } from '../common/Spinner'; // Now exists
@@ -19,7 +20,9 @@ const formatDate = (timestamp: number): string => {
  */
 export const ImageHistoryGallery: React.FC = () => {
   const { historyItems, isLoading, error, fetchHistory } = useImageHistory();
+  const { deleteHistoryImage, deletionError } = useImageHistoryDeletion();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const handleDownloadClick = async (imageUrl: string, filename: string, generatedImageId: string) => {
@@ -55,6 +58,22 @@ export const ImageHistoryGallery: React.FC = () => {
     }
   };
 
+  const handleDeleteClick = async (item: ImageHistoryItem) => {
+    if (window.confirm(`Are you sure you want to delete the image generated on ${formatDate(item.createdAt)}? This cannot be undone.`)) {
+        setDeletingId(item.generatedImageId);
+        const success = await deleteHistoryImage({ generatedImageId: item.generatedImageId });
+        if (success) {
+            console.log('History item deleted, refreshing history...');
+            fetchHistory(); // Refetch the history list
+        } else {
+            // Error is handled by the hook and displayed below
+            console.error("Deletion failed.");
+            // Optionally show an alert: alert(`Deletion failed: ${deletionError}`);
+        }
+        setDeletingId(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-10">
@@ -87,12 +106,16 @@ export const ImageHistoryGallery: React.FC = () => {
   return (
     <div className="mt-8">
       <h2 className="text-2xl font-semibold font-nunito mb-4 text-gray-800 dark:text-gray-200">Image History</h2>
+      {deletionError && (
+        <p className="text-sm text-red-500 dark:text-red-400 mb-4 text-center">Error deleting image: {deletionError}</p>
+      )}
       {downloadError && (
         <p className="text-sm text-red-500 dark:text-red-400 mb-4 text-center">{downloadError}</p>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {historyItems.map((item) => {
           const isDownloadingThis = downloadingId === item.generatedImageId;
+          const isDeletingThis = deletingId === item.generatedImageId;
           return (
             <Card key={item.generatedImageId} className="overflow-hidden flex flex-col">
               <img
@@ -111,14 +134,22 @@ export const ImageHistoryGallery: React.FC = () => {
                     </p>
                   )}
                 </div>
-                <div className="mt-3 text-right">
+                <div className="mt-3 text-right flex justify-end space-x-2">
                   <Button
                     variant="secondary"
                     size="sm"
                     onClick={() => handleDownloadClick(item.imageUrl, `generated_${item.generatedImageId.substring(0, 8)}.png`, item.generatedImageId)}
-                    disabled={isDownloadingThis}
+                    disabled={isDownloadingThis || isDeletingThis}
                   >
                     {isDownloadingThis ? <Spinner /> : 'Download'}
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => handleDeleteClick(item)}
+                    disabled={isDeletingThis || isDownloadingThis}
+                  >
+                    {isDeletingThis ? <Spinner /> : 'Delete'}
                   </Button>
                 </div>
               </div>

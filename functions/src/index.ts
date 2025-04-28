@@ -16,6 +16,7 @@ admin.initializeApp();
 export {generateImage} from "./generateImage";
 export {getImageHistory} from "./getImageHistory";
 export {deletePhoto} from "./deletePhoto";
+export {deleteHistoryImage} from "./deleteHistoryImage";
 
 // Example placeholder (can be removed)
 // export const helloWorld = onRequest((request, response) => {
