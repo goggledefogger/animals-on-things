@@ -215,7 +215,8 @@ export function useImageGeneration(): UseImageGenerationReturn {
         const code = err.code;
         // These codes often indicate temporary network issues or client-side timeouts
         // where the function might still succeed on the backend.
-        const isPotentiallyRecoverable = code === 'deadline-exceeded' || code === 'unavailable' || code === 'cancelled';
+        // Treat client-side 'internal' as potentially recoverable too, as it might be due to network disruption.
+        const isPotentiallyRecoverable = code === 'deadline-exceeded' || code === 'unavailable' || code === 'cancelled' || code === 'internal';
 
         if (isPotentiallyRecoverable) {
             console.warn(`Potentially recoverable client-side error (${code}) for reqId: ${requestId}. Waiting for listener.`);
