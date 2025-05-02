@@ -110,7 +110,7 @@ This document details the technical requirements for Phase 1, using **Firebase**
         -   **Hosting:** Firebase Hosting
         -   **Database:** **Realtime Database**
         -   **Storage:** Firebase Cloud Storage
-        -   **Functions:** Firebase Cloud Functions (Node.js/TypeScript recommended, or Python)
+        -   **Functions:** Firebase Cloud Functions (Node.js/TypeScript recommended)
         -   **Authentication:** Firebase Authentication (Email Link)
         -   **(Phase 3) Scheduler:** Google Cloud Scheduler (for triggering daily function)
     -   **AI Service:** OpenAI API (`gpt-image-1` for image generation, potentially Chat Completions API for theme generation in Phase 3)
