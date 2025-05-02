@@ -9,6 +9,7 @@ interface GenerateImageInput {
   selections: { profileId: string; photoId: string }[];
   style: string | null;
   prompt: string | null;
+  quality?: 'low' | 'medium' | 'high' | 'auto';
 }
 
 // Define the expected output structure from the Firebase Function
@@ -186,7 +187,7 @@ export function useImageGeneration(): UseImageGenerationReturn {
       return;
     }
 
-    console.log(`Calling generateImage function with reqId: ${requestId}`, input);
+    console.log(`Calling generateImage function with reqId: ${requestId}, Quality: ${input.quality || 'low'}`, input);
 
     try {
       const functions = getFunctions();
@@ -194,7 +195,7 @@ export function useImageGeneration(): UseImageGenerationReturn {
         functions, 'generateImage', { timeout: 540000 } // Keep function timeout
       );
 
-      // Call the function, but don't solely rely on its direct response for success
+      // Call the function, including the quality from the input object
       const result = await generateImageFunction({ ...input, requestId });
       console.log(`Direct function call successful for reqId: ${requestId}`, result.data);
 

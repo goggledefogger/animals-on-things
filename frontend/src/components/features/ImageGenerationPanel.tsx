@@ -3,6 +3,7 @@ import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { Textarea } from '../common/Textarea';
 import { useImageGeneration } from '../../hooks/useImageGeneration';
+import { Select } from '../common/Select';
 
 // Define the structure for a single selection passed from App.tsx
 interface GenerationSelection {
@@ -21,9 +22,17 @@ const PREDEFINED_STYLES = [
   'Comic Book', 'Watercolor', 'Pixel Art', 'Jungle', 'Space', 'Cozy'
 ];
 
+// Define quality options
+const QUALITY_OPTIONS: { value: 'low' | 'medium' | 'high'; label: string }[] = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+];
+
 export const ImageGenerationPanel: React.FC<ImageGenerationPanelProps> = ({ selections }) => {
   const [selectedStyle, setSelectedStyle] = useState<string | null>('None');
   const [customPrompt, setCustomPrompt] = useState<string>('');
+  const [selectedQuality, setSelectedQuality] = useState<'low' | 'medium' | 'high'>('low');
   const { generateImage, isGenerating, generatedImageUrl, generationError } = useImageGeneration();
 
   const canGenerate = selections.length > 0;
@@ -33,7 +42,7 @@ export const ImageGenerationPanel: React.FC<ImageGenerationPanelProps> = ({ sele
     const promptToSend = customPrompt.trim() || null;
 
     if (canGenerate && (styleToSend || promptToSend)) {
-      generateImage({ selections, style: styleToSend, prompt: promptToSend });
+      generateImage({ selections, style: styleToSend, prompt: promptToSend, quality: selectedQuality });
     } else {
       console.warn("Generation trigger conditions not met.");
     }
@@ -75,6 +84,18 @@ export const ImageGenerationPanel: React.FC<ImageGenerationPanelProps> = ({ sele
               rows={3}
               aria-label="Custom generation prompt"
             />
+        </div>
+
+        {/* Quality Selector */}
+        <div className="mb-4">
+          <label htmlFor="quality-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quality:</label>
+          <Select
+            id="quality-select"
+            options={QUALITY_OPTIONS}
+            value={selectedQuality}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedQuality(e.target.value as 'low' | 'medium' | 'high')}
+            aria-label="Select image generation quality"
+          />
         </div>
       </fieldset>
 
