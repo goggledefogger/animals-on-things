@@ -78,13 +78,11 @@ export const generateImage = functions
       const qualityToUse = quality || "low"; // Default to low if not provided
 
       // Log model selection details
-      functions.logger.info("Model selection details", {
-        uid,
-        requestedModel: model,
-        defaultModel: "gpt-image-1",
-        finalModel: modelToUse,
-        quality: qualityToUse,
-      });
+      functions.logger.info(
+        `Model selection details - uid: ${uid}, requested: ${
+          model || "none"
+        }, final: ${modelToUse}, quality: ${qualityToUse}`
+      );
 
       // Allow generation if style is null but prompt exists
       if (
@@ -119,15 +117,13 @@ export const generateImage = functions
       }
 
       // Log generation parameters
-      functions.logger.info("Starting image generation", {
-        uid,
-        style,
-        model: modelToUse,
-        quality: qualityToUse,
-        promptProvided: !!prompt,
-        selectionCount: selections.length,
-        requestId,
-      });
+      functions.logger.info(
+        `Starting image generation - uid: ${uid}, style: ${
+          style || "none"
+        }, model: ${modelToUse}, quality: ${qualityToUse}, prompt: ${!!prompt}, selections: ${
+          selections.length
+        }, requestId: ${requestId}`
+      );
 
       // 3. Fetch Profile/Photo Details (Name for prompt, Image Buffer for API)
       const db = admin.database();
@@ -263,20 +259,22 @@ export const generateImage = functions
 
       // ---- GOOGLE IMAGEN PATH ----
       const modelType = getModelType(modelToUse);
-      functions.logger.info("Model type detection", {
-        uid,
-        modelName: modelToUse,
-        detectedType: modelType,
-        supportedTypes: Object.values(MODEL_TYPES),
-      });
+      functions.logger.info(
+        `Model type detection - uid: ${uid}, model: ${modelToUse}, type: ${
+          modelType || "unknown"
+        }`
+      );
 
       if (modelType === MODEL_TYPES.GOOGLE_IMAGEN) {
-        functions.logger.info("Using Google Imagen API", {uid, model: modelToUse});
+        functions.logger.info(`Using Google Imagen API - uid: ${uid}, model: ${modelToUse}`);
 
         try {
           const googleProject = process.env.GOOGLE_PROJECT_ID;
           if (!googleProject) {
-            throw new HttpsError("internal", "Google Project ID is not configured.");
+            throw new HttpsError(
+              "internal",
+              "Google Project ID is not configured."
+            );
           }
 
           const client = new JWT({
@@ -306,7 +304,7 @@ export const generateImage = functions
               },
             ],
             parameters: {
-              "sampleCount": 1,
+              sampleCount: 1,
             },
           };
 
@@ -318,10 +316,12 @@ export const generateImage = functions
 
           if (!apiResponse.ok) {
             const errorBody = await apiResponse.text();
-            throw new Error(`Google Imagen API request failed with status ${apiResponse.status}: ${errorBody}`);
+            throw new Error(
+              `Google Imagen API request failed with status ${apiResponse.status}: ${errorBody}`
+            );
           }
 
-          const responseData = await apiResponse.json() as {
+          const responseData = (await apiResponse.json()) as {
             predictions: {
               bytesBase64Encoded: string;
             }[];
@@ -329,21 +329,26 @@ export const generateImage = functions
           generatedImageBase64 = responseData.predictions[0].bytesBase64Encoded;
 
           if (!generatedImageBase64) {
-            throw new Error("Google Imagen response did not contain image data.");
+            throw new Error(
+              "Google Imagen response did not contain image data."
+            );
           }
-          functions.logger.info("Google Imagen image generation successful.", {uid});
+          functions.logger.info(`Google Imagen image generation successful - uid: ${uid}`);
         } catch (error) {
-          functions.logger.error("Google Imagen API call failed:", {uid, error});
+          functions.logger.error(`Google Imagen API call failed - uid: ${uid}, error: ${error}`);
           if (error instanceof HttpsError) throw error;
-          throw new HttpsError("internal", "Failed to generate image with Google Imagen.");
+          throw new HttpsError(
+            "internal",
+            "Failed to generate image with Google Imagen."
+          );
         }
 
-      // ---- OPENAI PATH ----
+        // ---- OPENAI PATH ----
       } else if (modelType === MODEL_TYPES.OPENAI) {
         if (!openai) {
           throw new HttpsError("internal", "OpenAI client is not initialized.");
         }
-        functions.logger.info("Using OpenAI Image API", {uid, model: modelToUse, modelType});
+        functions.logger.info(`Using OpenAI Image API - uid: ${uid}, model: ${modelToUse}, type: ${modelType}`);
 
         try {
           // Prepare image data using the toFile helper
@@ -370,38 +375,42 @@ export const generateImage = functions
 
           generatedImageBase64 = response.data?.[0]?.b64_json;
           if (!generatedImageBase64) {
-            throw new Error("OpenAI response did not contain image b64_json data.");
+            throw new Error(
+              "OpenAI response did not contain image b64_json data."
+            );
           }
-          functions.logger.info("OpenAI image edit successful.", {uid});
+          functions.logger.info(`OpenAI image edit successful - uid: ${uid}`);
         } catch (error: unknown) {
-          functions.logger.error("OpenAI API call failed:", {uid, error});
+          functions.logger.error(`OpenAI API call failed - uid: ${uid}, error: ${error}`);
           let errorMessage = "Unknown OpenAI error";
           if (error instanceof OpenAI.APIError) {
             errorMessage = error.message || "OpenAI API Error";
-            if (error.code === "invalid_prompt" || error.code === "content_policy_violation") {
-              errorMessage = "Image generation failed due to content policy. Please modify your prompt.";
+            if (
+              error.code === "invalid_prompt" ||
+              error.code === "content_policy_violation"
+            ) {
+              errorMessage =
+                "Image generation failed due to content policy. Please modify your prompt.";
             } else if (error.status === 429) {
-              errorMessage = "Image generation service is overloaded. Please try again later.";
+              errorMessage =
+                "Image generation service is overloaded. Please try again later.";
             }
           } else if (error instanceof Error) {
             errorMessage = error.message;
           }
-          throw new HttpsError("internal", `Failed to generate image: ${errorMessage}`);
+          throw new HttpsError(
+            "internal",
+            `Failed to generate image: ${errorMessage}`
+          );
         }
       } else {
         // Unknown model type
-        functions.logger.error("Unsupported model type", {
-          uid,
-          modelName: modelToUse,
-          detectedType: modelType,
-          supportedModels: {
-            openai: Object.keys(MODELS.OPENAI),
-            googleImagen: Object.keys(MODELS.GOOGLE_IMAGEN),
-          },
-        });
+        functions.logger.error(`Unsupported model type - uid: ${uid}, model: ${modelToUse}, type: ${modelType || "unknown"}, supported: ${Object.keys(MODELS.OPENAI).join(", ")}, ${Object.keys(MODELS.GOOGLE_IMAGEN).join(", ")}`);
         throw new HttpsError(
           "invalid-argument",
-          `Unsupported model type: ${modelToUse}. Supported models: ${Object.keys(MODELS.OPENAI).join(", ")}, ${Object.keys(MODELS.GOOGLE_IMAGEN).join(", ")}`
+          `Unsupported model type: ${modelToUse}. Supported models: ${Object.keys(
+            MODELS.OPENAI
+          ).join(", ")}, ${Object.keys(MODELS.GOOGLE_IMAGEN).join(", ")}`
         );
       }
 
