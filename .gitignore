@@ -21,3 +21,5 @@ lib/
 typings/
 
 .firebase/
+
+google.json

@@ -4,6 +4,7 @@ import * as admin from "firebase-admin";
 import OpenAI, {toFile} from "openai";
 import {JWT} from "google-auth-library";
 import fetch from "node-fetch";
+import {MODEL_TYPES, MODELS, getModelType} from "./constants/models";
 
 // Admin SDK should be initialized in index.ts
 
@@ -75,6 +76,15 @@ export const generateImage = functions
       const {selections, style, prompt, requestId, model, quality} = data;
       const modelToUse = model || "gpt-image-1"; // Use provided model or default
       const qualityToUse = quality || "low"; // Default to low if not provided
+
+      // Log model selection details
+      functions.logger.info("Model selection details", {
+        uid,
+        requestedModel: model,
+        defaultModel: "gpt-image-1",
+        finalModel: modelToUse,
+        quality: qualityToUse,
+      });
 
       // Allow generation if style is null but prompt exists
       if (
@@ -252,77 +262,88 @@ export const generateImage = functions
       let generatedImageBase64: string | undefined;
 
       // ---- GOOGLE IMAGEN PATH ----
-      if (modelToUse.startsWith("imagegeneration")) {
+      const modelType = getModelType(modelToUse);
+      functions.logger.info("Model type detection", {
+        uid,
+        modelName: modelToUse,
+        detectedType: modelType,
+        supportedTypes: Object.values(MODEL_TYPES),
+      });
+
+      if (modelType === MODEL_TYPES.GOOGLE_IMAGEN) {
         functions.logger.info("Using Google Imagen API", {uid, model: modelToUse});
 
         try {
-            const googleProject = process.env.GOOGLE_PROJECT_ID;
-            if (!googleProject) {
-                throw new HttpsError("internal", "Google Project ID is not configured.");
-            }
+          const googleProject = process.env.GOOGLE_PROJECT_ID;
+          if (!googleProject) {
+            throw new HttpsError("internal", "Google Project ID is not configured.");
+          }
 
-            const client = new JWT({
-                keyFile: "./google.json", // Assumes service account key is in this file
-                scopes: ["https://www.googleapis.com/auth/cloud-platform"],
-            });
-            const idToken = await client.authorize();
+          const client = new JWT({
+            keyFile: "./google.json", // Assumes service account key is in this file
+            scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+          });
+          const idToken = await client.authorize();
 
-            const API_ENDPOINT = "us-central1-aiplatform.googleapis.com";
-            const IMAGEN_URL = `https://${API_ENDPOINT}/v1/projects/${googleProject}/locations/us-central1/publishers/google/models/${modelToUse}:predict`;
+          const API_ENDPOINT = "us-central1-aiplatform.googleapis.com";
+          const IMAGEN_URL = `https://${API_ENDPOINT}/v1/projects/${googleProject}/locations/us-central1/publishers/google/models/${modelToUse}:predict`;
 
-            const headers = {
-                "Authorization": `Bearer ${idToken.access_token}`,
-                "Content-Type": "application/json",
-            };
+          const headers = {
+            "Authorization": `Bearer ${idToken.access_token}`,
+            "Content-Type": "application/json",
+          };
 
-            // The Vertex AI Imagen API for editing takes only one image.
-            // We will use the first selected image.
-            const baseImage = fetchedPhotoDetails[0];
-            const body = {
-                instances: [
-                    {
-                        prompt: combinedPrompt,
-                        image: {
-                            bytesBase64Encoded: baseImage.imageBuffer.toString("base64"),
-                        }
-                    },
-                ],
-                parameters: {
-                    "sampleCount": 1,
-                }
-            };
+          // The Vertex AI Imagen API for editing takes only one image.
+          // We will use the first selected image.
+          const baseImage = fetchedPhotoDetails[0];
+          const body = {
+            instances: [
+              {
+                prompt: combinedPrompt,
+                image: {
+                  bytesBase64Encoded: baseImage.imageBuffer.toString("base64"),
+                },
+              },
+            ],
+            parameters: {
+              "sampleCount": 1,
+            },
+          };
 
-            const apiResponse = await fetch(IMAGEN_URL, {
-                method: "POST",
-                headers: headers,
-                body: JSON.stringify(body),
-            });
+          const apiResponse = await fetch(IMAGEN_URL, {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify(body),
+          });
 
-            if (!apiResponse.ok) {
-                const errorBody = await apiResponse.text();
-                throw new Error(`Google Imagen API request failed with status ${apiResponse.status}: ${errorBody}`);
-            }
+          if (!apiResponse.ok) {
+            const errorBody = await apiResponse.text();
+            throw new Error(`Google Imagen API request failed with status ${apiResponse.status}: ${errorBody}`);
+          }
 
-            const responseData = await apiResponse.json() as { predictions: { bytesBase64Encoded: string }[] };
-            generatedImageBase64 = responseData.predictions[0].bytesBase64Encoded;
+          const responseData = await apiResponse.json() as {
+            predictions: {
+              bytesBase64Encoded: string;
+            }[];
+          };
+          generatedImageBase64 = responseData.predictions[0].bytesBase64Encoded;
 
-            if (!generatedImageBase64) {
-                throw new Error("Google Imagen response did not contain image data.");
-            }
-            functions.logger.info("Google Imagen image generation successful.", {uid});
-
+          if (!generatedImageBase64) {
+            throw new Error("Google Imagen response did not contain image data.");
+          }
+          functions.logger.info("Google Imagen image generation successful.", {uid});
         } catch (error) {
-            functions.logger.error("Google Imagen API call failed:", {uid, error});
-            if (error instanceof HttpsError) throw error;
-            throw new HttpsError("internal", "Failed to generate image with Google Imagen.");
+          functions.logger.error("Google Imagen API call failed:", {uid, error});
+          if (error instanceof HttpsError) throw error;
+          throw new HttpsError("internal", "Failed to generate image with Google Imagen.");
         }
 
-      // ---- OPENAI DALL-E PATH ----
-      } else {
+      // ---- OPENAI PATH ----
+      } else if (modelType === MODEL_TYPES.OPENAI) {
         if (!openai) {
-            throw new HttpsError("internal", "OpenAI client is not initialized.");
+          throw new HttpsError("internal", "OpenAI client is not initialized.");
         }
-        functions.logger.info("Using OpenAI DALL-E API", {uid, model: modelToUse});
+        functions.logger.info("Using OpenAI Image API", {uid, model: modelToUse, modelType});
 
         try {
           // Prepare image data using the toFile helper
@@ -367,6 +388,21 @@ export const generateImage = functions
           }
           throw new HttpsError("internal", `Failed to generate image: ${errorMessage}`);
         }
+      } else {
+        // Unknown model type
+        functions.logger.error("Unsupported model type", {
+          uid,
+          modelName: modelToUse,
+          detectedType: modelType,
+          supportedModels: {
+            openai: Object.keys(MODELS.OPENAI),
+            googleImagen: Object.keys(MODELS.GOOGLE_IMAGEN),
+          },
+        });
+        throw new HttpsError(
+          "invalid-argument",
+          `Unsupported model type: ${modelToUse}. Supported models: ${Object.keys(MODELS.OPENAI).join(", ")}, ${Object.keys(MODELS.GOOGLE_IMAGEN).join(", ")}`
+        );
       }
 
       // 6. Upload Generated Image Base64 to Cloud Storage

@@ -15,6 +15,8 @@ interface ImageGenerationPanelProps {
   selections: GenerationSelection[]; // Array of selected profile/photo pairs
 }
 
+import { MODEL_OPTIONS } from "../../constants/models";
+
 // TODO: Define styles in a configuration file or fetch dynamically?
 const PREDEFINED_STYLES = [
   'None',
@@ -27,12 +29,6 @@ const QUALITY_OPTIONS: { value: 'low' | 'medium' | 'high'; label: string }[] = [
   { value: 'low', label: 'Low' },
   { value: 'medium', label: 'Medium' },
   { value: 'high', label: 'High' },
-];
-
-// Define model options
-const MODEL_OPTIONS: { value: string; label: string }[] = [
-    { value: 'gpt-image-1', label: 'OpenAI Image' },
-    { value: 'imagegeneration@002', label: 'Google Imagen 2' },
 ];
 
 
