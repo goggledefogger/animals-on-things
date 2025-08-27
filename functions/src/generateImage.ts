@@ -2,6 +2,8 @@ import * as functions from "firebase-functions/v1";
 import {HttpsError} from "firebase-functions/v1/https";
 import * as admin from "firebase-admin";
 import OpenAI, {toFile} from "openai";
+import {JWT} from "google-auth-library";
+import fetch from "node-fetch";
 
 // Admin SDK should be initialized in index.ts
 
@@ -246,86 +248,125 @@ export const generateImage = functions
         reqId: requestId,
       }); // Added requestId to log
 
-      // 5. Call OpenAI Image Edit API
+      // 5. Call AI Image Generation API
       let generatedImageBase64: string | undefined;
-      try {
-        // Prepare image data using the toFile helper
-        const inputImagesPromises = fetchedPhotoDetails.map(
-          async (detail, index) => {
-            // Convert buffer to Uploadable using toFile
-            // TODO: Determine file type dynamically from storage metadata if possible
-            const filename = `input_${index}.png`; // Assume PNG for now
-            const mimeType = "image/png"; // Assume PNG
-            functions.logger.info(
-              `Preparing file ${filename} (${mimeType}) for upload`,
-              {uid}
-            );
-            return await toFile(detail.imageBuffer, filename, {
-              type: mimeType,
+
+      // ---- GOOGLE IMAGEN PATH ----
+      if (modelToUse.startsWith("imagegeneration")) {
+        functions.logger.info("Using Google Imagen API", {uid, model: modelToUse});
+
+        try {
+            const googleProject = process.env.GOOGLE_PROJECT_ID;
+            if (!googleProject) {
+                throw new HttpsError("internal", "Google Project ID is not configured.");
+            }
+
+            const client = new JWT({
+                keyFile: "./google.json", // Assumes service account key is in this file
+                scopes: ["https://www.googleapis.com/auth/cloud-platform"],
             });
-          }
-        );
-        const inputImages = await Promise.all(inputImagesPromises);
-        functions.logger.info(
-          `Prepared ${inputImages.length} input images for OpenAI.`,
-          {uid}
-        );
+            const idToken = await client.authorize();
 
-        functions.logger.info(
-          `Calling OpenAI images.edit API with quality: ${qualityToUse}...`,
-          {uid, model: modelToUse}
-        ); // Log quality being used
+            const API_ENDPOINT = "us-central1-aiplatform.googleapis.com";
+            const IMAGEN_URL = `https://${API_ENDPOINT}/v1/projects/${googleProject}/locations/us-central1/publishers/google/models/${modelToUse}:predict`;
 
-        const response = await openai.images.edit({
-          // Using .edit endpoint
-          model: modelToUse,
-          image: inputImages, // Pass the array of Uploadable files
-          prompt: combinedPrompt,
-          n: 1, // Generate one image
-          size: "1024x1024",
-          quality: qualityToUse, // Pass the quality parameter
-          // response_format: "b64_json", // gpt-image-1 always returns b64_json
-          user: uid, // Pass the Firebase user ID for monitoring
-        });
+            const headers = {
+                "Authorization": `Bearer ${idToken.access_token}`,
+                "Content-Type": "application/json",
+            };
 
-        generatedImageBase64 = response.data?.[0]?.b64_json;
-        if (!generatedImageBase64) {
-          functions.logger.error(
-            "OpenAI response missing image b64_json data",
-            {uid, responseData: response.data}
-          );
-          throw new Error(
-            "OpenAI response did not contain image b64_json data."
-          );
+            // The Vertex AI Imagen API for editing takes only one image.
+            // We will use the first selected image.
+            const baseImage = fetchedPhotoDetails[0];
+            const body = {
+                instances: [
+                    {
+                        prompt: combinedPrompt,
+                        image: {
+                            bytesBase64Encoded: baseImage.imageBuffer.toString("base64"),
+                        }
+                    },
+                ],
+                parameters: {
+                    "sampleCount": 1,
+                }
+            };
+
+            const apiResponse = await fetch(IMAGEN_URL, {
+                method: "POST",
+                headers: headers,
+                body: JSON.stringify(body),
+            });
+
+            if (!apiResponse.ok) {
+                const errorBody = await apiResponse.text();
+                throw new Error(`Google Imagen API request failed with status ${apiResponse.status}: ${errorBody}`);
+            }
+
+            const responseData = await apiResponse.json() as { predictions: { bytesBase64Encoded: string }[] };
+            generatedImageBase64 = responseData.predictions[0].bytesBase64Encoded;
+
+            if (!generatedImageBase64) {
+                throw new Error("Google Imagen response did not contain image data.");
+            }
+            functions.logger.info("Google Imagen image generation successful.", {uid});
+
+        } catch (error) {
+            functions.logger.error("Google Imagen API call failed:", {uid, error});
+            if (error instanceof HttpsError) throw error;
+            throw new HttpsError("internal", "Failed to generate image with Google Imagen.");
         }
-        functions.logger.info(
-          "OpenAI image edit successful (received base64 data).",
-          {uid}
-        );
-      } catch (error: unknown) {
-        functions.logger.error("OpenAI API call failed:", {uid, error});
-        let errorMessage = "Unknown OpenAI error";
-        if (error instanceof OpenAI.APIError) {
-          errorMessage = error.message || "OpenAI API Error";
-          if (
-            error.code === "invalid_prompt" ||
-            error.code === "content_policy_violation"
-          ) {
-            errorMessage =
-              "Image generation failed due to content policy or prompt issue. Please modify your prompt.";
-          } else if (error.status === 429) {
-            errorMessage =
-              "Image generation service is currently overloaded. Please try again later.";
-          } else if (error.status === 401) {
-            errorMessage = "Image generation service authentication failed.";
-          }
-        } else if (error instanceof Error) {
-          errorMessage = error.message;
+
+      // ---- OPENAI DALL-E PATH ----
+      } else {
+        if (!openai) {
+            throw new HttpsError("internal", "OpenAI client is not initialized.");
         }
-        throw new HttpsError(
-          "internal",
-          `Failed to generate image: ${errorMessage}`
-        );
+        functions.logger.info("Using OpenAI DALL-E API", {uid, model: modelToUse});
+
+        try {
+          // Prepare image data using the toFile helper
+          const inputImagesPromises = fetchedPhotoDetails.map(
+            async (detail, index) => {
+              const filename = `input_${index}.png`;
+              const mimeType = "image/png";
+              return await toFile(detail.imageBuffer, filename, {
+                type: mimeType,
+              });
+            }
+          );
+          const inputImages = await Promise.all(inputImagesPromises);
+
+          const response = await openai.images.edit({
+            model: modelToUse,
+            image: inputImages,
+            prompt: combinedPrompt,
+            n: 1,
+            size: "1024x1024",
+            quality: qualityToUse,
+            user: uid,
+          });
+
+          generatedImageBase64 = response.data?.[0]?.b64_json;
+          if (!generatedImageBase64) {
+            throw new Error("OpenAI response did not contain image b64_json data.");
+          }
+          functions.logger.info("OpenAI image edit successful.", {uid});
+        } catch (error: unknown) {
+          functions.logger.error("OpenAI API call failed:", {uid, error});
+          let errorMessage = "Unknown OpenAI error";
+          if (error instanceof OpenAI.APIError) {
+            errorMessage = error.message || "OpenAI API Error";
+            if (error.code === "invalid_prompt" || error.code === "content_policy_violation") {
+              errorMessage = "Image generation failed due to content policy. Please modify your prompt.";
+            } else if (error.status === 429) {
+              errorMessage = "Image generation service is overloaded. Please try again later.";
+            }
+          } else if (error instanceof Error) {
+            errorMessage = error.message;
+          }
+          throw new HttpsError("internal", `Failed to generate image: ${errorMessage}`);
+        }
       }
 
       // 6. Upload Generated Image Base64 to Cloud Storage

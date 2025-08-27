@@ -29,10 +29,18 @@ const QUALITY_OPTIONS: { value: 'low' | 'medium' | 'high'; label: string }[] = [
   { value: 'high', label: 'High' },
 ];
 
+// Define model options
+const MODEL_OPTIONS: { value: string; label: string }[] = [
+    { value: 'gpt-image-1', label: 'OpenAI Image' },
+    { value: 'imagegeneration@002', label: 'Google Imagen 2' },
+];
+
+
 export const ImageGenerationPanel: React.FC<ImageGenerationPanelProps> = ({ selections }) => {
   const [selectedStyle, setSelectedStyle] = useState<string | null>('None');
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const [selectedQuality, setSelectedQuality] = useState<'low' | 'medium' | 'high'>('low');
+  const [selectedModel, setSelectedModel] = useState<string>(MODEL_OPTIONS[0].value);
   const { generateImage, isGenerating, generatedImageUrl, generationError } = useImageGeneration();
 
   const canGenerate = selections.length > 0;
@@ -42,7 +50,13 @@ export const ImageGenerationPanel: React.FC<ImageGenerationPanelProps> = ({ sele
     const promptToSend = customPrompt.trim() || null;
 
     if (canGenerate && (styleToSend || promptToSend)) {
-      generateImage({ selections, style: styleToSend, prompt: promptToSend, quality: selectedQuality });
+      generateImage({
+          selections,
+          style: styleToSend,
+          prompt: promptToSend,
+          quality: selectedQuality,
+          model: selectedModel
+        });
     } else {
       console.warn("Generation trigger conditions not met.");
     }
@@ -84,6 +98,18 @@ export const ImageGenerationPanel: React.FC<ImageGenerationPanelProps> = ({ sele
               rows={3}
               aria-label="Custom generation prompt"
             />
+        </div>
+
+        {/* Model Selector */}
+        <div className="mb-4">
+          <label htmlFor="model-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">AI Model:</label>
+          <Select
+            id="model-select"
+            options={MODEL_OPTIONS}
+            value={selectedModel}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedModel(e.target.value)}
+            aria-label="Select image generation model"
+          />
         </div>
 
         {/* Quality Selector */}

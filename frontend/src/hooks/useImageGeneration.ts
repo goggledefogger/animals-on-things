@@ -10,6 +10,7 @@ interface GenerateImageInput {
   style: string | null;
   prompt: string | null;
   quality?: 'low' | 'medium' | 'high' | 'auto';
+  model?: string;
 }
 
 // Define the expected output structure from the Firebase Function
