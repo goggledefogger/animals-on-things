@@ -1,16 +1,21 @@
-# Animals-On-Things
+# Animals On Things
 
-Turn photos of **any animal** (pets, wildlife, insects!) into fun, AI-generated images! Upload pictures, manage profiles for your favorite creatures, choose a style or describe your own, and let AI create unique artwork.
+## Demo: https://animals.roytown.net/
+
+<img width="600" alt="image" src="https://github.com/user-attachments/assets/bebac060-dd88-4bab-befd-28988c47fe88" />
+
+
+Turn photos of any animal (pets, wildlife, insects!) into fun AI-generated images. Upload pictures, manage profiles for your favorite creatures, choose a style or describe your own, and let AI create its unique, cute, weird art.
 
 **Current Features:**
-*   Email link authentication
+*   Email link login
 *   Animal profile creation and management
 *   Photo uploads for profiles
 *   AI Image Generation based on selected photos, styles, and prompts
 *   Image history gallery with download and delete functionality
-*   Robust status handling for image generation, even with mobile network interruptions
+*   Robust handling for image generation, even with mobile network interruptions
 
-Future plans include **automated daily themed images** and merchandise options. This project aims to be a delightful way to celebrate **all animals**, **with the long-term goal of supporting animal welfare and conservation causes through potential merchandise sales.**
+Future plans include automated daily themed images and merchandise printing. This project aims to be a delightful way to celebrate all animals, with the long term goal of supporting animal welfare and conservation causes through potential merchandise sales.
 
 **(Phase 1 focuses on core image generation with persistent user data for animal profiles and photos.)**
 
