@@ -1,6 +1,6 @@
 # Animals On Things
 
-Turn photos of any animal (pets, wildlife, insects!) into fun AI-generated images. Upload pictures, manage profiles for your favorite creatures, choose a style or describe your own, and let AI create its unique, cute, weird art.
+Turn photos of any animal (pets, wildlife, insects) into fun AI-generated images. Upload multiple pictures for each animal, choose a style or describe your own, and let AI create unique, cute, weird art.
 
 ## Demo: https://animals.roytown.net/
 
