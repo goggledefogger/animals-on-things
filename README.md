@@ -3,6 +3,7 @@
 ## Demo: https://animals.roytown.net/
 
 <img width="600" alt="image" src="https://github.com/user-attachments/assets/bebac060-dd88-4bab-befd-28988c47fe88" />
+<img width="600" alt="image" src="https://github.com/user-attachments/assets/a58a35c3-b07d-4761-8fb0-7e30150e320a" />
 
 
 Turn photos of any animal (pets, wildlife, insects!) into fun AI-generated images. Upload pictures, manage profiles for your favorite creatures, choose a style or describe your own, and let AI create its unique, cute, weird art.
