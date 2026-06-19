@@ -69,6 +69,39 @@ export const generateImage = functions
       }
       const uid = context.auth.uid;
 
+      // 1.5. Rate Limiting Check (Max 3 generations per 24 hours)
+      const db = admin.database();
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      try {
+        const recentImagesSnap = await db
+          .ref(`/generatedImages/${uid}`)
+          .orderByChild("createdAt")
+          .startAt(oneDayAgo)
+          .once("value");
+        const recentImages = recentImagesSnap.val();
+        if (recentImages && Object.keys(recentImages).length >= 3) {
+          functions.logger.warn(
+            `User ${uid} exceeded daily generation limit ` +
+            `(${Object.keys(recentImages).length} in last 24h).`,
+            {uid}
+          );
+          throw new HttpsError(
+            "resource-exhausted",
+            "You have reached your daily limit of 3 image generations. " +
+            "Please try again tomorrow."
+          );
+        }
+      } catch (error) {
+        if (error instanceof HttpsError) {
+          throw error;
+        }
+        functions.logger.error("Error checking rate limit:", {uid, error});
+        throw new HttpsError(
+          "internal",
+          "An error occurred while checking image generation limits."
+        );
+      }
+
       // 2. Input Validation
       const {selections, style, prompt, requestId, model, quality} = data;
       const modelToUse = model || "gpt-image-1"; // Use provided model or default
@@ -118,7 +151,6 @@ export const generateImage = functions
       });
 
       // 3. Fetch Profile/Photo Details (Name for prompt, Image Buffer for API)
-      const db = admin.database();
       const storageBucket = admin.storage().bucket(); // Get storage bucket
       let fetchedPhotoDetails: FetchedPhotoDetail[];
       try {
